@@ -427,7 +427,7 @@ void CClient::Rcon(const char *pCmd)
 {
 	CServerInfo Info;
 	GetServerInfo(&Info);
-	if(RconAuthed() && str_find_nocase(Info.m_aGameType, "ddracenetw"))
+	if(RconAuthed() && (str_find_nocase(Info.m_aGameType, "ddracenetw") || str_find_nocase(Info.m_aGameType, "ddnet")))
 	{ // Against IP spoofing on DDNet servers
 		CMsgPacker Msg(NETMSG_RCON_AUTH);
 		Msg.AddString("", 32);
@@ -1200,8 +1200,8 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 
 			if (pPacket->m_DataSize == (int)(sizeof(VERSIONSRV_DDNETLIST) + 8 + CompLength))
 			{
-				char aBuf[PlainLength];
-				uLongf DstLen = PlainLength;
+				char aBuf[16384];
+				uLongf DstLen = sizeof(aBuf);
 				const char *pComp = (char*)pPacket->m_pData+sizeof(VERSIONSRV_DDNETLIST)+8;
 
 				// do decompression of serverlist
@@ -1432,7 +1432,7 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 
 				if(State() == IClient::STATE_ONLINE && !m_TimeoutCodeSent[g_Config.m_ClDummy])
 				{
-					if(str_find_nocase(Info.m_aGameType, "ddracenetw"))
+					if(str_find_nocase(Info.m_aGameType, "ddracenetw") || str_find_nocase(Info.m_aGameType, "ddnet"))
 					{
 						m_TimeoutCodeSent[g_Config.m_ClDummy] = true;
 						CNetMsg_Cl_Say Msg;
