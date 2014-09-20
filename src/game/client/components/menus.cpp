@@ -839,7 +839,7 @@ void CMenus::OnInit()
 	if(g_Config.m_ClShowWelcome)
 	{
 		m_Popup = POPUP_LANGUAGE;
-		str_copy(g_Config.m_BrFilterString, "DDraceNetwork", sizeof(g_Config.m_BrFilterString));
+		str_copy(g_Config.m_BrFilterString, "Novice [DDraceNetwork]", sizeof(g_Config.m_BrFilterString));
 	}
 	g_Config.m_ClShowWelcome = 0;
 
@@ -875,6 +875,10 @@ int CMenus::Render()
 	static bool s_First = true;
 	if(s_First)
 	{
+		m_pClient->m_pSounds->Enqueue(CSounds::CHN_MUSIC, SOUND_MENU);
+		s_First = false;
+		m_DoubleClickIndex = -1;
+
 		if(g_Config.m_UiPage == PAGE_INTERNET)
 			ServerBrowser()->Refresh(IServerBrowser::TYPE_INTERNET);
 		else if(g_Config.m_UiPage == PAGE_LAN)
@@ -883,9 +887,6 @@ int CMenus::Render()
 			ServerBrowser()->Refresh(IServerBrowser::TYPE_FAVORITES);
 		else if(g_Config.m_UiPage == PAGE_DDNET)
 			ServerBrowser()->Refresh(IServerBrowser::TYPE_DDNET);
-		m_pClient->m_pSounds->Enqueue(CSounds::CHN_MUSIC, SOUND_MENU);
-		s_First = false;
-		m_DoubleClickIndex = -1;
 	}
 
 	if(Client()->State() == IClient::STATE_ONLINE)
