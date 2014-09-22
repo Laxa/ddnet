@@ -214,11 +214,30 @@ void CMenus::RenderPlayers(CUIRect MainView)
 
 	for (int i = 0; i < MAX_CLIENTS - 1; i++) // bubblesort before displaying players
 	{
-	  if (str_comp_nocase(m_pClient->m_aClients[i].m_aName, m_pClient->m_aClients[i + 1].m_aName) > 0)
+	  if(!m_pClient->m_Snap.m_paInfoByTeam[i])
+	    continue;
+	  int Index = m_pClient->m_Snap.m_paInfoByTeam[i]->m_ClientID;
+	  int tmp = i;
+	  while (42)
 	    {
-	      CGameClient::CClientData pTmp = m_pClient->m_aClients[i];
-	      m_pClient->m_aClients[i] = m_pClient->m_aClients[i + 1];
-	      m_pClient->m_aClients[i + 1] = pTmp;
+	      i++;
+	      if (i >= MAX_CLIENTS)
+	  	break;
+	      if(!m_pClient->m_Snap.m_paInfoByTeam[i])
+	  	continue;
+	      break;
+	    }
+	  if (i >= MAX_CLIENTS)
+	    break;
+	  int Index2 = m_pClient->m_Snap.m_paInfoByTeam[i]->m_ClientID;
+	  if (str_comp_nocase(m_pClient->m_aClients[Index].m_aName, m_pClient->m_aClients[Index2].m_aName) > 0)
+	    {
+	      // CGameClient::CClientData pTmp = m_pClient->m_aClients[Index];
+	      // m_pClient->m_aClients[Index] = m_pClient->m_aClients[Index2];
+	      // m_pClient->m_aClients[Index2] = pTmp;
+	      const CNetObj_PlayerInfo *pTmp = m_pClient->m_Snap.m_paInfoByTeam[tmp];
+	      m_pClient->m_Snap.m_paInfoByTeam[tmp] = m_pClient->m_Snap.m_paInfoByTeam[i];
+	      m_pClient->m_Snap.m_paInfoByTeam[i] = pTmp;
 	      i = -1;
 	    }
 	}
