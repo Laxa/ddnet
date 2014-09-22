@@ -212,17 +212,15 @@ void CMenus::RenderPlayers(CUIRect MainView)
 	// options
 	static int s_aPlayerIDs[MAX_CLIENTS][2] = {{0}};
 
-	for (int k = 0; k < MAX_CLIENTS - 1; k++) // bubblesort before displaying players
+	for (int i = 0; i < MAX_CLIENTS - 1; i++) // bubblesort before displaying players
 	{
-		for (int i = 0; i < MAX_CLIENTS - k - 1; i++)
-		{
-			if (m_Snap.m_paInfoByName[i + 1] && (!m_Snap.m_paInfoByName[i] || str_comp_nocase(m_aClients[m_Snap.m_paInfoByName[i]->m_ClientID].m_aName, m_aClients[m_Snap.m_paInfoByName[i + 1]->m_ClientID].m_aName) > 0))
-			{
-				const CNetObj_PlayerInfo *pTmp = m_Snap.m_paInfoByName[i];
-				m_Snap.m_paInfoByName[i] = m_Snap.m_paInfoByName[i + 1];
-				m_Snap.m_paInfoByName[i + 1] = pTmp;
-			}
-		}
+	  if (str_comp_nocase(m_pClient->m_aClients[i].m_aName, m_pClient->m_aClients[i + 1].m_aName) > 0)
+	    {
+	      CGameClient::CClientData pTmp = m_pClient->m_aClients[i];
+	      m_pClient->m_aClients[i] = m_pClient->m_aClients[i + 1];
+	      m_pClient->m_aClients[i + 1] = pTmp;
+	      i = -1;
+	    }
 	}
 
 	for(int i = 0, Count = 0; i < MAX_CLIENTS; ++i)
@@ -268,7 +266,7 @@ void CMenus::RenderPlayers(CUIRect MainView)
 		//Cursor.m_LineWidth = Button.w;
 		vec4 Color(1.0f, 1.0f, 1.0f, 0.5f);
 		m_pClient->m_pCountryFlags->Render(m_pClient->m_aClients[Index].m_Country, &Color,
-			Button2.x, Button2.y + Button2.h/2.0f - 0.75*Button2.h/2.0f, 1.5f*Button2.h, 0.75f*Button2.h);
+						   Button2.x, Button2.y + Button2.h/2.0f - 0.75*Button2.h/2.0f, 1.5f*Button2.h, 0.75f*Button2.h);
 
 		// ignore button
 		Item.m_Rect.HMargin(2.0f, &Item.m_Rect);
