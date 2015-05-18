@@ -25,7 +25,11 @@ void CUpdater::Init()
 	m_pClient = Kernel()->RequestInterface<IClient>();
 	m_pStorage = Kernel()->RequestInterface<IStorage>();
 	m_pFetcher = Kernel()->RequestInterface<IFetcher>();
+	#if defined(CONF_FAMILY_WINDOWS)
 	m_IsWinXP = os_compare_version(5, 1) <= 0;
+	#else
+	m_IsWinXP = false;
+	#endif
 }
 
 void CUpdater::ProgressCallback(CFetchTask *pTask, void *pUser)
@@ -74,7 +78,7 @@ void CUpdater::FetchFile(const char *pFile, const char *pDestPath)
 	str_format(aBuf, sizeof(aBuf), "https://%s/%s", g_Config.m_ClDDNetUpdateServer, pFile);
 	if(!pDestPath)
 		pDestPath = pFile;
-	CFetchTask *Task = new CFetchTask;
+	CFetchTask *Task = new CFetchTask(false);
 	m_pFetcher->QueueAdd(Task, aBuf, pDestPath, -2, this, &CUpdater::CompletionCallback, &CUpdater::ProgressCallback);
 }
 
@@ -118,7 +122,7 @@ void CUpdater::ReplaceClient()
 	dbg_msg("updater", "Replacing " PLAT_CLIENT_EXEC);
 
 	//Replace running executable by renaming twice...
-	if(m_IsWinXP)
+	if(!m_IsWinXP)
 	{
 		m_pStorage->RemoveBinaryFile("DDNet.old");
 		m_pStorage->RenameBinaryFile(PLAT_CLIENT_EXEC, "DDNet.old");

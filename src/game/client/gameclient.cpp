@@ -1568,13 +1568,44 @@ void CGameClient::OnPredict()
 		}
 
 		// move all players and quantize their data
-		for(int c = 0; c < MAX_CLIENTS; c++)
+		if(g_Config.m_ClAntiPingPlayers)
 		{
-			if(!World.m_apCharacters[c])
-				continue;
+			// Everyone with weaker hook
+			for(int c = 0; c < MAX_CLIENTS; c++)
+			{
+				if(c != m_Snap.m_LocalClientID && World.m_apCharacters[c] && IsWeaker[g_Config.m_ClDummy][c])
+				{
+					World.m_apCharacters[c]->Move();
+					World.m_apCharacters[c]->Quantize();
+				}
+			}
 
-			World.m_apCharacters[c]->Move();
-			World.m_apCharacters[c]->Quantize();
+			// Us
+			if(World.m_apCharacters[m_Snap.m_LocalClientID])
+			{
+				World.m_apCharacters[m_Snap.m_LocalClientID]->Move();
+				World.m_apCharacters[m_Snap.m_LocalClientID]->Quantize();
+			}
+
+			// Everyone with stronger hook
+			for(int c = 0; c < MAX_CLIENTS; c++)
+			{
+				if(c != m_Snap.m_LocalClientID && World.m_apCharacters[c] && !IsWeaker[g_Config.m_ClDummy][c])
+				{
+					World.m_apCharacters[c]->Move();
+					World.m_apCharacters[c]->Quantize();
+				}
+			}
+		}
+		else
+		{
+			for(int c = 0; c < MAX_CLIENTS; c++)
+			{
+				if(!World.m_apCharacters[c])
+					continue;
+				World.m_apCharacters[c]->Move();
+				World.m_apCharacters[c]->Quantize();
+			}
 		}
 
 		// check if we want to trigger effects
