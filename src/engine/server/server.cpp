@@ -314,6 +314,7 @@ CServer::CServer()
 	m_RconAuthLevel = AUTHED_ADMIN;
 
 	m_RconRestrict = -1;
+	m_GeneratedRconPassword = 0;
 
 	Init();
 }
@@ -530,6 +531,36 @@ bool CServer::ClientIngame(int ClientID)
 int CServer::MaxClients() const
 {
 	return m_NetServer.MaxClients();
+}
+
+void CServer::InitRconPasswordIfEmpty()
+{
+	if(g_Config.m_SvRconPassword[0])
+	{
+		return;
+	}
+
+	static const char VALUES[] = "ABCDEFGHKLMNPRSTUVWXYZabcdefghjkmnopqt23456789";
+	static const size_t NUM_VALUES = sizeof(VALUES) - 1; // Disregard the '\0'.
+	static const size_t PASSWORD_LENGTH = 6;
+	dbg_assert(NUM_VALUES * NUM_VALUES >= 2048, "need at least 2048 possibilities for 2-character sequences");
+	// With 6 characters, we get a password entropy of log(2048) * 6/2 = 33bit.
+
+	dbg_assert(PASSWORD_LENGTH % 2 == 0, "need an even password length");
+	unsigned short aRandom[PASSWORD_LENGTH / 2];
+	char aRandomPassword[PASSWORD_LENGTH+1];
+	aRandomPassword[PASSWORD_LENGTH] = 0;
+
+	secure_random_fill(aRandom, sizeof(aRandom));
+	for(size_t i = 0; i < PASSWORD_LENGTH / 2; i++)
+	{
+		unsigned short RandomNumber = aRandom[i] % 2048;
+		aRandomPassword[2 * i + 0] = VALUES[RandomNumber / NUM_VALUES];
+		aRandomPassword[2 * i + 1] = VALUES[RandomNumber % NUM_VALUES];
+	}
+
+	str_copy(g_Config.m_SvRconPassword, aRandomPassword, sizeof(g_Config.m_SvRconPassword));
+	m_GeneratedRconPassword = 1;
 }
 
 int CServer::SendMsg(CMsgPacker *pMsg, int Flags, int ClientID)
@@ -1527,6 +1558,13 @@ int CServer::Run()
 	// process pending commands
 	m_pConsole->StoreCommands(false);
 
+	if(m_GeneratedRconPassword)
+	{
+		dbg_msg("server", "+-------------------------+");
+		dbg_msg("server", "| rcon password: '%s' |", g_Config.m_SvRconPassword);
+		dbg_msg("server", "+-------------------------+");
+	}
+
 	// start game
 	{
 		bool NonActive = false;
@@ -1674,10 +1712,10 @@ void CServer::ConTestingCommands(CConsole::IResult *pResult, void *pUser)
 	((CConsole*)pUser)->Print(CConsole::OUTPUT_LEVEL_STANDARD, "console", aBuf);
 }
 
-void CServer::ConAllowRescue(CConsole::IResult *pResult, void *pUser)
+void CServer::ConRescue(CConsole::IResult *pResult, void *pUser)
 {
 	char aBuf[128];
-	str_format(aBuf, sizeof(aBuf), "Value: %d", g_Config.m_SvAllowRescue);
+	str_format(aBuf, sizeof(aBuf), "Value: %d", g_Config.m_SvRescue);
 	((CConsole*)pUser)->Print(CConsole::OUTPUT_LEVEL_STANDARD, "console", aBuf);
 }
 
@@ -2028,6 +2066,12 @@ int main(int argc, const char **argv) // ignore_convention
 	}
 #endif
 
+	if(secure_random_init() != 0)
+	{
+		dbg_msg("secure", "could not initialize secure RNG");
+		return -1;
+	}
+
 	CServer *pServer = CreateServer();
 	IKernel *pKernel = IKernel::Create();
 
@@ -2076,7 +2120,7 @@ int main(int argc, const char **argv) // ignore_convention
 		pConsole->ParseArguments(argc-1, &argv[1]); // ignore_convention
 
 	pConsole->Register("sv_test_cmds", "", CFGFLAG_SERVER, CServer::ConTestingCommands, pConsole, "Turns testing commands aka cheats on/off");
-	pConsole->Register("sv_allow_rescue", "", CFGFLAG_SERVER, CServer::ConAllowRescue, pConsole, "Allow /rescue command so players can teleport themselves out of freeze");
+	pConsole->Register("sv_allow_rescue", "", CFGFLAG_SERVER, CServer::ConRescue, pConsole, "Allow /rescue command so players can teleport themselves out of freeze");
 
 	// restore empty config strings to their defaults
 	pConfig->RestoreStrings();
@@ -2086,6 +2130,7 @@ int main(int argc, const char **argv) // ignore_convention
 #if defined(CONF_FAMILY_UNIX)
 	FifoConsole *fifoConsole = new FifoConsole(pConsole, g_Config.m_SvInputFifo, CFGFLAG_SERVER);
 #endif
+	pServer->InitRconPasswordIfEmpty();
 
 	// run the server
 	dbg_msg("server", "starting...");

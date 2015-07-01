@@ -172,7 +172,7 @@ void CSqlScore::Init()
 			str_format(aBuf, sizeof(aBuf), "CREATE TABLE IF NOT EXISTS %s_teamrace (Map VARCHAR(128) BINARY NOT NULL, Name VARCHAR(%d) BINARY NOT NULL, Timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, Time FLOAT DEFAULT 0, ID VARBINARY(16) NOT NULL, KEY Map (Map)) CHARACTER SET utf8 ;", m_pPrefix, MAX_NAME_LENGTH);
 			m_pStatement->execute(aBuf);
 
-			str_format(aBuf, sizeof(aBuf), "CREATE TABLE IF NOT EXISTS %s_maps (Map VARCHAR(128) BINARY NOT NULL, Server VARCHAR(32) BINARY NOT NULL, Mapper VARCHAR(128) BINARY NOT NULL, Points INT DEFAULT 0, Stars INT DEFAULT 0, UNIQUE KEY Map (Map)) CHARACTER SET utf8 ;", m_pPrefix);
+			str_format(aBuf, sizeof(aBuf), "CREATE TABLE IF NOT EXISTS %s_maps (Map VARCHAR(128) BINARY NOT NULL, Server VARCHAR(32) BINARY NOT NULL, Mapper VARCHAR(128) BINARY NOT NULL, Points INT DEFAULT 0, Stars INT DEFAULT 0, Timestamp TIMESTAMP, UNIQUE KEY Map (Map)) CHARACTER SET utf8 ;", m_pPrefix);
 			m_pStatement->execute(aBuf);
 
 			str_format(aBuf, sizeof(aBuf), "CREATE TABLE IF NOT EXISTS %s_saves (Savegame TEXT CHARACTER SET utf8 BINARY NOT NULL, Map VARCHAR(128) BINARY NOT NULL, Code VARCHAR(128) BINARY NOT NULL, Timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, Server CHAR(3), UNIQUE KEY (Map, Code)) CHARACTER SET utf8 ;", m_pPrefix);
@@ -531,8 +531,8 @@ void CSqlScore::MapInfoThread(void *pUser)
 
 		try
 		{
-			char aBuf[768];
-			str_format(aBuf, sizeof(aBuf), "SELECT l.Map, l.Server, Mapper, Points, Stars, count(Name) as Finishes FROM ((SELECT Map, Server, Mapper, Points, Stars FROM %s_maps WHERE Map LIKE '%s' COLLATE utf8_general_ci ORDER BY LENGTH(Map), Map LIMIT 1) as l) LEFT JOIN %s_race as r on l.Map = r.Map;", pData->m_pSqlData->m_pPrefix, pData->m_aMap, pData->m_pSqlData->m_pPrefix);
+			char aBuf[1024];
+			str_format(aBuf, sizeof(aBuf), "SELECT l.Map, l.Server, Mapper, Points, Stars, (select count(Name) from %s_race where Map = l.Map) as Finishes, (select count(distinct Name) from %s_race where Map = l.Map) as Finishers, UNIX_TIMESTAMP(l.Timestamp) as Stamp, UNIX_TIMESTAMP(CURRENT_TIMESTAMP)-UNIX_TIMESTAMP(l.Timestamp) as Ago FROM (SELECT * FROM %s_maps WHERE Map LIKE '%s' COLLATE utf8_general_ci ORDER BY LENGTH(Map), Map LIMIT 1) as l;", pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_pPrefix, pData->m_pSqlData->m_pPrefix, pData->m_aMap);
 			pData->m_pSqlData->m_pResults = pData->m_pSqlData->m_pStatement->executeQuery(aBuf);
 
 			if(pData->m_pSqlData->m_pResults->rowsCount() != 1)
@@ -545,12 +545,23 @@ void CSqlScore::MapInfoThread(void *pUser)
 				int points = (int)pData->m_pSqlData->m_pResults->getInt("Points");
 				int stars = (int)pData->m_pSqlData->m_pResults->getInt("Stars");
 				int finishes = (int)pData->m_pSqlData->m_pResults->getInt("Finishes");
+				int finishers = (int)pData->m_pSqlData->m_pResults->getInt("Finishers");
 				char aMap[128];
 				strcpy(aMap, pData->m_pSqlData->m_pResults->getString("Map").c_str());
 				char aServer[32];
 				strcpy(aServer, pData->m_pSqlData->m_pResults->getString("Server").c_str());
 				char aMapper[128];
 				strcpy(aMapper, pData->m_pSqlData->m_pResults->getString("Mapper").c_str());
+				int stamp = (int)pData->m_pSqlData->m_pResults->getInt("Stamp");
+				int ago = (int)pData->m_pSqlData->m_pResults->getInt("Ago");
+
+				char pAgoString[40] = "\0";
+				char pReleasedString[60] = "\0";
+				if(stamp != 0)
+				{
+					agoTimeToString(ago, pAgoString);
+					str_format(pReleasedString, sizeof(pReleasedString), ", released %s ago", pAgoString);
+				}
 
 				char aStars[20];
 				switch(stars)
@@ -564,10 +575,7 @@ void CSqlScore::MapInfoThread(void *pUser)
 				}
 
 				aServer[0] = toupper(aServer[0]);
-				if (points == 1)
-					str_format(aBuf, sizeof(aBuf), "\"%s\" by %s on %s (%s, %d point, %d finishes)", aMap, aMapper, aServer, aStars, points, finishes);
-				else
-					str_format(aBuf, sizeof(aBuf), "\"%s\" by %s on %s (%s, %d points, %d finishes)", aMap, aMapper, aServer, aStars, points, finishes);
+				str_format(aBuf, sizeof(aBuf), "\"%s\" by %s on %s (%s, %d %s, %d %s by %d %s%s)", aMap, aMapper, aServer, aStars, points, points == 1 ? "point" : "points", finishes, finishes == 1 ? "finish" : "finishes", finishers, finishers == 1 ? "tee" : "tees", pReleasedString);
 			}
 
 			pData->m_pSqlData->GameServer()->SendChatTarget(pData->m_ClientID, aBuf);

@@ -1,8 +1,8 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include <base/tl/array.h>
-
 #include <base/system.h>
+#include <time.h>
 
 #if defined(CONF_FAMILY_UNIX)
 #include <pthread.h>
@@ -471,6 +471,16 @@ vec4 CEditor::GetButtonColor(const void *pID, int Checked)
 
 	switch(Checked)
 	{
+	case 7: // selected + game layers
+		if(UI()->HotItem() == pID)
+			return vec4(1,0,0,0.4f);
+		return vec4(1,0,0,0.2f);
+
+	case 6: // game layers
+		if(UI()->HotItem() == pID)
+			return vec4(1,1,1,0.4f);
+		return vec4(1,1,1,0.2f);
+
 	case 5: // selected + image/sound should be embedded
 		if(UI()->HotItem() == pID)
 			return vec4(1,0,0,0.75f);
@@ -676,6 +686,16 @@ int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, in
 		str_format(s_NumStr, sizeof(s_NumStr), "%d", Current);
 	}
 
+	if(UI()->ActiveItem() == pID)
+	{
+		if(!UI()->MouseButton(0))
+		{
+			m_LockMouse = false;
+			UI()->SetActiveItem(0);
+			s_TextMode = false;
+		}
+	}
+
 	if(s_TextMode && s_LastTextpID == pID)
 	{
 		m_pTooltip = "Type your number";
@@ -689,12 +709,14 @@ int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, in
 				((UI()->MouseButton(1) || UI()->MouseButton(0)) && !Inside))
 		{
 			Current = clamp(str_toint(s_NumStr), Min, Max);
+			m_LockMouse = false;
 			UI()->SetActiveItem(0);
 			s_TextMode = false;
 		}
 
 		if(Input()->KeyPressed(KEY_ESCAPE))
 		{
+			m_LockMouse = false;
 			UI()->SetActiveItem(0);
 			s_TextMode = false;
 		}
@@ -703,12 +725,7 @@ int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, in
 	{
 		if(UI()->ActiveItem() == pID)
 		{
-			if(!UI()->MouseButton(0))
-			{
-				m_LockMouse = false;
-				UI()->SetActiveItem(0);
-			}
-			else
+			if(UI()->MouseButton(0))
 			{
 				if(Input()->KeyPressed(KEY_LSHIFT) || Input()->KeyPressed(KEY_RSHIFT))
 					s_Value += m_MouseDeltaX*0.05f;
@@ -736,12 +753,6 @@ int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, in
 			}
 			if(pToolTip && !s_TextMode)
 				m_pTooltip = pToolTip;
-			
-			if(!Inside)
-			{
-				UI()->SetActiveItem(0);
-				s_TextMode = false;
-			}
 		}
 
 		if(Inside)
@@ -892,8 +903,7 @@ void CEditor::DoToolbar(CUIRect ToolBar)
 			if(!m_PopupEventWasActivated)
 			{
 				str_copy(m_aFileSaveName, m_aFileName, sizeof(m_aFileSaveName));
-				m_PopupEventType = POPEVENT_SAVE;
-				m_PopupEventActivated = true;
+				CallbackSaveMap(m_aFileSaveName, IStorage::TYPE_SAVE, this);
 			}
 		}
 		else
@@ -2844,7 +2854,17 @@ void CEditor::RenderLayers(CUIRect ToolBox, CUIRect ToolBar, CUIRect View)
 				float FontSize = 10.0f;
 				while(TextRender()->TextWidth(0, FontSize, aBuf, -1) > Button.w)
 					FontSize--;
-				if(int Result = DoButton_Ex(m_Map.m_lGroups[g]->m_lLayers[i], aBuf, g==m_SelectedGroup&&i==m_SelectedLayer, &Button,
+				int Checked = g == m_SelectedGroup && i == m_SelectedLayer;
+				if(m_Map.m_lGroups[g]->m_lLayers[i] == m_Map.m_pGameLayer ||
+					m_Map.m_lGroups[g]->m_lLayers[i] == m_Map.m_pFrontLayer ||
+					m_Map.m_lGroups[g]->m_lLayers[i] == m_Map.m_pSwitchLayer ||
+					m_Map.m_lGroups[g]->m_lLayers[i] == m_Map.m_pTuneLayer ||
+					m_Map.m_lGroups[g]->m_lLayers[i] == m_Map.m_pSpeedupLayer ||
+					m_Map.m_lGroups[g]->m_lLayers[i] == m_Map.m_pTeleLayer)
+				{
+					Checked += 6;
+				}
+				if(int Result = DoButton_Ex(m_Map.m_lGroups[g]->m_lLayers[i], aBuf, Checked, &Button,
 					BUTTON_CONTEXT, "Select layer.", 0, FontSize))
 				{
 					m_SelectedLayer = i;
@@ -4130,9 +4150,8 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 		{
 			m_SelectedEnvelope--;
 			if(m_SelectedEnvelope < 0)
-				CurrentEnvelopeSwitched = false;
-			else
-				CurrentEnvelopeSwitched = true;
+				m_SelectedEnvelope = m_Map.m_lEnvelopes.size() - 1;
+			CurrentEnvelopeSwitched = true;
 		}
 
 		static int s_NextButton = 0;
@@ -4140,9 +4159,8 @@ void CEditor::RenderEnvelopeEditor(CUIRect View)
 		{
 			m_SelectedEnvelope++;
 			if(m_SelectedEnvelope >= m_Map.m_lEnvelopes.size())
-				CurrentEnvelopeSwitched = false;
-			else
-				CurrentEnvelopeSwitched = true;
+				m_SelectedEnvelope = 0;
+			CurrentEnvelopeSwitched = true;
 		}
 
 		if(pEnvelope)
@@ -4681,7 +4699,12 @@ void CEditor::RenderMenubar(CUIRect MenuBar)
 	str_format(aBuf, sizeof(aBuf), "File: %s", m_aFileName);
 	UI()->DoLabel(&MenuBar, aBuf, 10.0f, -1, -1);
 
-	str_format(aBuf, sizeof(aBuf), "Z: %i, A: %.1f, G: %i", m_ZoomLevel, m_AnimateSpeed, m_GridFactor);
+	time_t rawtime;
+	struct tm *timeinfo;
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	str_format(aBuf, sizeof(aBuf), "Z: %i, A: %.1f, G: %i  %02d:%02d", m_ZoomLevel, m_AnimateSpeed, m_GridFactor, timeinfo->tm_hour, timeinfo->tm_min);
 	UI()->DoLabel(&Info, aBuf, 10.0f, 1, -1);
 
 	static int s_CloseButton = 0;

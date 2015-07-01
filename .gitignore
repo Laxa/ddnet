@@ -42,6 +42,7 @@ bam.exe
 *.sdf
 *.sln
 *.suo
+*.swp
 *.vcxproj
 *.filters
 *.user

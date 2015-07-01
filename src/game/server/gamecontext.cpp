@@ -835,7 +835,7 @@ void CGameContext::ProgressVoteOptions(int ClientID)
 	// get current vote option by index
 	CVoteOptionServer *pCurrent = GetVoteOption(pPl->m_SendVoteIndex);
 
-	while(CurIndex < NumVotesToSend)
+	while(CurIndex < NumVotesToSend && pCurrent != NULL)
 	{
 		switch(CurIndex)
 		{
@@ -1056,7 +1056,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 				}
 				else
 				{
-					if(g_Config.m_SvSpamprotection
+					if(g_Config.m_SvSpamprotection && str_comp_nocase_num(pMsg->m_pMessage+1, "timeout ", 8) != 0
 						&& pPlayer->m_LastCommands[0] && pPlayer->m_LastCommands[0]+Server()->TickSpeed() > Server()->Tick()
 						&& pPlayer->m_LastCommands[1] && pPlayer->m_LastCommands[1]+Server()->TickSpeed() > Server()->Tick()
 						&& pPlayer->m_LastCommands[2] && pPlayer->m_LastCommands[2]+Server()->TickSpeed() > Server()->Tick()
@@ -1591,8 +1591,8 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 	}
 	if (MsgID == NETMSGTYPE_CL_STARTINFO)
 	{
-		//if(pPlayer->m_IsReady)
-		//	return;
+		if(pPlayer->m_IsReady)
+			return;
 
 		CNetMsg_Cl_StartInfo *pMsg = (CNetMsg_Cl_StartInfo *)pRawMsg;
 		pPlayer->m_LastChangeInfo = Server()->Tick();

@@ -173,6 +173,13 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 	else
 		ScrollNum = 0;
 
+	if(Input()->KeyDown(KEY_TAB))
+	{
+		if(Input()->KeyPressed(KEY_LSHIFT) || Input()->KeyPressed(KEY_RSHIFT))
+			g_Config.m_UiToolboxPage = (g_Config.m_UiToolboxPage + 3 - 1) % 3;
+		else
+			g_Config.m_UiToolboxPage = (g_Config.m_UiToolboxPage + 3 + 1) % 3;
+	}
 	if(m_SelectedIndex > -1)
 	{
 		for(int i = 0; i < m_NumInputEvents; i++)
@@ -182,13 +189,6 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 			{
 				if(m_aInputEvents[i].m_Key == KEY_DOWN) NewIndex = m_SelectedIndex + 1;
 				if(m_aInputEvents[i].m_Key == KEY_UP) NewIndex = m_SelectedIndex - 1;
-				if(m_aInputEvents[i].m_Key == KEY_TAB)
-				{
-					if(Input()->KeyPressed(KEY_LSHIFT) || Input()->KeyPressed(KEY_RSHIFT))
-						g_Config.m_UiToolboxPage = (g_Config.m_UiToolboxPage + 3 - 1) % 3;
-					else
-						g_Config.m_UiToolboxPage = (g_Config.m_UiToolboxPage + 3 + 1) % 3;
-				}
 			}
 			if(NewIndex > -1 && NewIndex < NumServers)
 			{
@@ -328,30 +328,18 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 
 			if(ID == COL_FLAG_LOCK)
 			{
-#if defined(__ANDROID__)
-				Button.h = Button.w;
-				Button.y += ms_ListitemAdditionalHeight / 2;
-#endif
 				if(pItem->m_Flags & SERVER_FLAG_PASSWORD)
 					DoButton_Icon(IMAGE_BROWSEICONS, SPRITE_BROWSE_LOCK, &Button);
 			}
 			else if(ID == COL_FLAG_FAV)
 			{
-#if defined(__ANDROID__)
-				Button.h = Button.w;
-				Button.y += ms_ListitemAdditionalHeight / 2;
-#endif
 				if(pItem->m_Favorite)
 					DoButton_Icon(IMAGE_BROWSEICONS, SPRITE_BROWSE_HEART, &Button);
 			}
 			else if(ID == COL_NAME)
 			{
 				CTextCursor Cursor;
-#if defined(__ANDROID__)
-				TextRender()->SetCursor(&Cursor, Button.x, Button.y + ms_ListitemAdditionalHeight / 2, 12.0f * UI()->Scale(), TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
-#else
 				TextRender()->SetCursor(&Cursor, Button.x, Button.y, 12.0f * UI()->Scale(), TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
-#endif
 				Cursor.m_LineWidth = Button.w;
 
 				if(g_Config.m_BrFilterString[0] && (pItem->m_QuickSearchHit&IServerBrowser::QUICK_SERVERNAME))
@@ -375,11 +363,7 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 			else if(ID == COL_MAP)
 			{
 				CTextCursor Cursor;
-#if defined(__ANDROID__)
-				TextRender()->SetCursor(&Cursor, Button.x, Button.y + ms_ListitemAdditionalHeight / 2, 12.0f * UI()->Scale(), TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
-#else
 				TextRender()->SetCursor(&Cursor, Button.x, Button.y, 12.0f * UI()->Scale(), TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
-#endif
 				Cursor.m_LineWidth = Button.w;
 
 				if(g_Config.m_BrFilterString[0] && (pItem->m_QuickSearchHit&IServerBrowser::QUICK_MAPNAME))
@@ -402,10 +386,6 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 			}
 			else if(ID == COL_PLAYERS)
 			{
-#if defined(__ANDROID__)
-				Button.h -= ms_ListitemAdditionalHeight;
-				Button.y += ms_ListitemAdditionalHeight / 2;
-#endif
 				CUIRect Icon;
 				Button.VMargin(4.0f, &Button);
 				if(pItem->m_FriendState != IFriends::FRIEND_NO)
@@ -426,10 +406,6 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 			}
 			else if(ID == COL_PING)
 			{
-#if defined(__ANDROID__)
-				Button.h -= ms_ListitemAdditionalHeight;
-				Button.y += ms_ListitemAdditionalHeight / 2;
-#endif
 				str_format(aTemp, sizeof(aTemp), "%i", pItem->m_Latency);
 				if (g_Config.m_UiColorizePing)
 				{
@@ -442,21 +418,13 @@ void CMenus::RenderServerbrowserServerList(CUIRect View)
 			}
 			else if(ID == COL_VERSION)
 			{
-#if defined(__ANDROID__)
-				Button.h -= ms_ListitemAdditionalHeight;
-				Button.y += ms_ListitemAdditionalHeight / 2;
-#endif
 				const char *pVersion = pItem->m_aVersion;
 				UI()->DoLabelScaled(&Button, pVersion, 12.0f, 1);
 			}
 			else if(ID == COL_GAMETYPE)
 			{
 				CTextCursor Cursor;
-#if defined(__ANDROID__)
-				TextRender()->SetCursor(&Cursor, Button.x, Button.y + ms_ListitemAdditionalHeight / 2, 12.0f*UI()->Scale(), TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
-#else
 				TextRender()->SetCursor(&Cursor, Button.x, Button.y, 12.0f*UI()->Scale(), TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
-#endif
 				Cursor.m_LineWidth = Button.w;
 
 				if (g_Config.m_UiColorizeGametype)

@@ -140,10 +140,11 @@ if family == "windows" then
 		table.insert(client_depends, CopyToDirectory(".", "other\\curl\\windows\\lib64\\ssleay32.dll"))
 		table.insert(client_depends, CopyToDirectory(".", "other\\curl\\windows\\lib64\\zlib1.dll"))
 
-		--table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libgcc_s_sjlj-1.dll"))
-		--table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libogg-0.dll"))
-		--table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libopus-0.dll"))
-		--table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libopusfile-0.dll"))
+		table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libwinpthread-1.dll"))
+		table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libgcc_s_seh-1.dll"))
+		table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libogg-0.dll"))
+		table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libopus-0.dll"))
+		table.insert(client_depends, CopyToDirectory(".", "other\\opus\\windows\\lib64\\libopusfile-0.dll"))
 	end
 	table.insert(server_sql_depends, CopyToDirectory(".", "other\\mysql\\vc2005libs\\mysqlcppconn.dll"))
 	table.insert(server_sql_depends, CopyToDirectory(".", "other\\mysql\\vc2005libs\\libmysql.dll"))
@@ -258,7 +259,7 @@ function build(settings)
 	-- build the small libraries
 	wavpack = Compile(settings, Collect("src/engine/external/wavpack/*.c"))
 	pnglite = Compile(settings, Collect("src/engine/external/pnglite/*.c"))
-	jsonparser = Compile(settings, Collect("src/engine/external/json-parser/*.cpp"))
+	jsonparser = Compile(settings, Collect("src/engine/external/json-parser/*.c"))
 	md5 = Compile(settings, "src/engine/external/md5/md5.c")
 	if config.websockets.value then
 		libwebsockets = Compile(settings, Collect("src/engine/external/libwebsockets/*.c"))
@@ -338,8 +339,13 @@ function build(settings)
 		end
 
 	elseif family == "windows" then
-		client_settings.link.libpath:Add("other/opus/windows/lib32")
-		client_settings.link.libpath:Add("other/curl/windows/lib32")
+		if arch == "amd64" then
+			client_settings.link.libpath:Add("other/opus/windows/lib64")
+			client_settings.link.libpath:Add("other/curl/windows/lib64")
+		else
+			client_settings.link.libpath:Add("other/opus/windows/lib32")
+			client_settings.link.libpath:Add("other/curl/windows/lib32")
+		end
 		client_settings.link.libs:Add("opengl32")
 		client_settings.link.libs:Add("glu32")
 		client_settings.link.libs:Add("winmm")

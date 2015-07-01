@@ -57,7 +57,7 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 {
 	char aBuf[128];
 	CUIRect Label, Button, Left, Right, Game, Client, AutoReconnect;
-	MainView.HSplitTop(160.0f, &Game, &Client);
+	MainView.HSplitTop(180.0f, &Game, &Client);
 	Client.HSplitTop(160.0f, &Client, &AutoReconnect);
 
 	// game
@@ -121,7 +121,23 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 			Right.HSplitTop(20.0f, &Button, &Right);
 			if(DoButton_CheckBox(&g_Config.m_ClNameplatesTeamcolors, Localize("Use team colors for name plates"), g_Config.m_ClNameplatesTeamcolors, &Button))
 				g_Config.m_ClNameplatesTeamcolors ^= 1;
-		}
+
+			Right.HSplitTop(5.0f, 0, &Right);
+			Right.HSplitTop(20.0f, &Button, &Right);
+			if(DoButton_CheckBox(&g_Config.m_ClNameplatesClan, Localize("Show clan above name plates"), g_Config.m_ClNameplatesClan, &Button))
+				g_Config.m_ClNameplatesClan ^= 1;
+			}
+
+			if(g_Config.m_ClNameplatesClan)
+			{
+				Right.HSplitTop(2.5f, 0, &Right);
+				Right.HSplitTop(20.0f, &Label, &Right);
+				Right.HSplitTop(20.0f, &Button, &Right);
+				str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("Clan plates size"), g_Config.m_ClNameplatesClanSize);
+				UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
+				Button.HMargin(2.0f, &Button);
+				g_Config.m_ClNameplatesClanSize = (int)(DoScrollbarH(&g_Config.m_ClNameplatesClanSize, &Button, g_Config.m_ClNameplatesClanSize/100.0f)*100.0f+0.1f);
+			}
 	}
 
 	// client
@@ -182,6 +198,34 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 		Left.HSplitTop(20.0f, &Button, 0);
 		Button.HMargin(2.0f, &Button);
 		g_Config.m_ClCpuThrottle= static_cast<int>(DoScrollbarH(&g_Config.m_ClCpuThrottle, &Button, g_Config.m_ClCpuThrottle/100.0f)*100.0f+0.1f);
+
+		// auto statboard screenshot
+		{
+			Right.HSplitTop(20.0f, 0, &Right); //
+			Right.HSplitTop(20.0f, 0, &Right); // Make some distance so it looks more natural
+			Right.HSplitTop(20.0f, &Button, &Right);
+			if(DoButton_CheckBox(&g_Config.m_ClAutoStatboardScreenshot,
+						Localize("Automatically take statboard screenshot"),
+						g_Config.m_ClAutoStatboardScreenshot, &Button))
+			{
+				g_Config.m_ClAutoStatboardScreenshot ^= 1;
+			}
+
+			Right.HSplitTop(10.0f, 0, &Right);
+			Right.HSplitTop(20.0f, &Label, &Right);
+			Button.VSplitRight(20.0f, &Button, 0);
+			if(g_Config.m_ClAutoStatboardScreenshotMax)
+				str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("Max Screenshots"), g_Config.m_ClAutoStatboardScreenshotMax);
+			else
+				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max Screenshots"), Localize("no limit"));
+			UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
+			Right.HSplitTop(20.0f, &Button, 0);
+			Button.HMargin(2.0f, &Button);
+			g_Config.m_ClAutoStatboardScreenshotMax =
+				static_cast<int>(DoScrollbarH(&g_Config.m_ClAutoStatboardScreenshotMax,
+							&Button,
+							g_Config.m_ClAutoStatboardScreenshotMax/1000.0f)*1000.0f+0.1f);
+		}
 	}
 }
 
@@ -516,7 +560,7 @@ static CKeyInfo gs_aKeys[] =
 	{ "Fire", "+fire", 0 },
 	{ "Hook", "+hook", 0 },
 	{ "Hook Collisions", "+showhookcoll", 0 },
-	{ "Dynamic Camera", "toggle cl_mouse_deadzone 300 0; toggle cl_mouse_followfactor 60 0; toggle cl_mouse_max_distance 1000 400", 0 },
+	{ "Dynamic Camera", "toggle_dynamic_camera", 0 },
 	{ "Hammer", "+weapon1", 0 },
 	{ "Pistol", "+weapon2", 0 },
 	{ "Shotgun", "+weapon3", 0 },
@@ -538,6 +582,7 @@ static CKeyInfo gs_aKeys[] =
 	{ "Remote console", "toggle_remote_console", 0 },
 	{ "Screenshot", "screenshot", 0 },
 	{ "Scoreboard", "+scoreboard", 0 },
+	{ "Statboard", "+statboard", 0 },
 	{ "Respawn", "kill", 0 },
 	{ "Toggle Dummy", "toggle cl_dummy 0 1", 0 },
 	{ "Dummy Copy", "toggle cl_dummy_copy_moves 0 1", 0 },
@@ -575,7 +620,7 @@ void CMenus::UiDoGetButtons(int Start, int Stop, CUIRect View)
 			if(NewId != 0)
 				m_pClient->m_pBinds->Bind(NewId, gs_aKeys[i].m_pCommand);
 		}
-		View.HSplitTop(5.0f, 0, &View);
+		View.HSplitTop(2.0f, 0, &View);
 	}
 }
 
@@ -688,7 +733,7 @@ void CMenus::RenderSettingsControls(CUIRect MainView)
 		TextRender()->Text(0, MiscSettings.x, MiscSettings.y, 14.0f*UI()->Scale(), Localize("Miscellaneous"), -1);
 
 		MiscSettings.HSplitTop(14.0f+5.0f, 0, &MiscSettings);
-		UiDoGetButtons(20, 32, MiscSettings);
+		UiDoGetButtons(20, 33, MiscSettings);
 	}
 
 }
@@ -797,7 +842,7 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 			g_Config.m_GfxFsaaSamples = (g_Config.m_GfxFsaaSamples-1 +17)%17;
 			CheckSettings = true;
 		}
-	
+
 	MainView.HSplitTop(20.0f, &Button, &MainView);
 	if(DoButton_CheckBox(&g_Config.m_GfxTextureQuality, Localize("Quality Textures"), g_Config.m_GfxTextureQuality, &Button))
 	{
@@ -1157,7 +1202,7 @@ void CMenus::RenderSettings(CUIRect MainView)
 	if(m_NeedRestartUpdate)
 	{
 		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
-		UI()->DoLabelScaled(&RestartWarning, "DDNet Client needs to be restarted to complete update!", 14.0f, -1);
+		UI()->DoLabelScaled(&RestartWarning, Localize("DDNet Client needs to be restarted to complete update!"), 14.0f, -1);
 		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 	else if(m_NeedRestartSkins || m_NeedRestartGraphics || m_NeedRestartSound)
@@ -1271,7 +1316,7 @@ void CMenus::RenderSettingsHUD(CUIRect MainView)
 		g_Config.m_ClMessageSystemLht = (int)(DoScrollbarH(&g_Config.m_ClMessageSystemLht, &Button, g_Config.m_ClMessageSystemLht / 255.0f)*255.0f);
 
 		Left.HSplitTop(10.0f, &Label, &Left);
-	
+
 		vec3 rgb = HslToRgb(vec3(g_Config.m_ClMessageSystemHue / 255.0f, g_Config.m_ClMessageSystemSat / 255.0f, g_Config.m_ClMessageSystemLht / 255.0f));
 		TextRender()->TextColor(rgb.r, rgb.g, rgb.b, 1.0f);
 
@@ -1543,7 +1588,7 @@ void CMenus::RenderSettingsHUD(CUIRect MainView)
 			Pos.x + Out.x, Pos.y + Out.y);
 		Graphics()->QuadsDrawFreeform(&Freeform, 1);
 
-		// do inner	
+		// do inner
 		RGB = HslToRgb(vec3(g_Config.m_ClLaserInnerHue / 255.0f, g_Config.m_ClLaserInnerSat / 255.0f, g_Config.m_ClLaserInnerLht / 255.0f));
 		vec4 InnerColor(RGB.r, RGB.g, RGB.b, 1.0f);
 		Out = vec2(0.0f, -1.0f) * (2.25f);
@@ -1694,6 +1739,14 @@ void CMenus::RenderSettingsDDRace(CUIRect MainView)
 	Button.HMargin(2.0f, &Button);
 	g_Config.m_ClDefaultZoom= static_cast<int>(DoScrollbarH(&g_Config.m_ClDefaultZoom, &Button, g_Config.m_ClDefaultZoom/20.0f)*20.0f+0.1f);
 
+	Right.HSplitTop(20.0f, &Label, &Right);
+	Label.VSplitLeft(130.0f, &Label, &Button);
+	str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("AntiPing limit"), g_Config.m_ClAntiPingLimit);
+	UI()->DoLabelScaled(&Label, aBuf, 14.0f, -1);
+	//Right.HSplitTop(20.0f, &Button, 0);
+	Button.HMargin(2.0f, &Button);
+	g_Config.m_ClAntiPingLimit= static_cast<int>(DoScrollbarH(&g_Config.m_ClAntiPingLimit, &Button, g_Config.m_ClAntiPingLimit/200.0f)*200.0f+0.1f);
+
 	Right.HSplitTop(20.0f, &Button, &Right);
 	if(DoButton_CheckBox(&g_Config.m_ClAntiPing, Localize("AntiPing"), g_Config.m_ClAntiPing, &Button))
 	{
@@ -1736,6 +1789,8 @@ void CMenus::RenderSettingsDDRace(CUIRect MainView)
 	{
 		g_Config.m_ClShowDirection ^= 1;
 	}
+
+	Left.HSplitTop(20.0f, &Button, &Left);
 
 	CUIRect aRects[2];
 	Left.HSplitTop(5.0f, &Button, &Left);
@@ -1799,26 +1854,26 @@ void CMenus::RenderSettingsDDRace(CUIRect MainView)
 		//Update Button
 		if(NeedUpdate && State <= IUpdater::CLEAN)
 		{
-			str_format(aBuf, sizeof(aBuf), "DDNet %s is available:", Client()->LatestVersion());
+			str_format(aBuf, sizeof(aBuf), Localize("DDNet %s is available:"), Client()->LatestVersion());
 			Label.VSplitLeft(TextRender()->TextWidth(0, 14.0f, aBuf, -1) + 10.0f, &Label, &Button);
 			Button.VSplitLeft(100.0f, &Button, 0);
 			static int s_ButtonUpdate = 0;
-			if(DoButton_Menu(&s_ButtonUpdate, "Update now", 0, &Button))
+			if(DoButton_Menu(&s_ButtonUpdate, Localize("Update now"), 0, &Button))
 				Updater()->InitiateUpdate();
 		}
 		else if(State >= IUpdater::GETTING_MANIFEST && State < IUpdater::NEED_RESTART)
-			str_format(aBuf, sizeof(aBuf), "Updating...");
+			str_format(aBuf, sizeof(aBuf), Localize("Updating..."));
 		else if(State == IUpdater::NEED_RESTART){
-			str_format(aBuf, sizeof(aBuf), "DDNet Client updated!");
+			str_format(aBuf, sizeof(aBuf), Localize("DDNet Client updated!"));
 			m_NeedRestartUpdate = true;
 		}
 		else
 		{
-			str_format(aBuf, sizeof(aBuf), "No updates available");
+			str_format(aBuf, sizeof(aBuf), Localize("No updates available"));
 			Label.VSplitLeft(TextRender()->TextWidth(0, 14.0f, aBuf, -1) + 10.0f, &Label, &Button);
 			Button.VSplitLeft(100.0f, &Button, 0);
 			static int s_ButtonUpdate = 0;
-			if(DoButton_Menu(&s_ButtonUpdate, "Check now", 0, &Button))
+			if(DoButton_Menu(&s_ButtonUpdate, Localize("Check now"), 0, &Button))
 			{
 				Client()->CheckVersionUpdate();
 			}
