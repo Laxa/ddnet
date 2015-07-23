@@ -1129,7 +1129,7 @@ const char *CClient::LoadMapSearch(const char *pMapName, int WantedCrc)
 	return pError;
 }
 
-int CClient::PlayerScoreComp(const void *a, const void *b)
+int CClient::PlayerScoreNameComp(const void *a, const void *b)
 {
 	CServerInfo::CClient *p0 = (CServerInfo::CClient *)a;
 	CServerInfo::CClient *p1 = (CServerInfo::CClient *)b;
@@ -1137,11 +1137,11 @@ int CClient::PlayerScoreComp(const void *a, const void *b)
 		return -1;
 	if(!p0->m_Player && p1->m_Player)
 		return 1;
-	if(p0->m_Score == p1->m_Score)
-		return 0;
+	if(p0->m_Score > p1->m_Score)
+		return -1;
 	if(p0->m_Score < p1->m_Score)
 		return 1;
-	return -1;
+	return str_comp_nocase(p0->m_aName, p1->m_aName);
 }
 
 void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
@@ -1212,7 +1212,7 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 		}
 
 		// ddnet server list
-		// Packet: VERSIONSRV_DDNETLIST + char[4] Token + int16 comp_length + int16 plain_length + char[comp_length] 
+		// Packet: VERSIONSRV_DDNETLIST + char[4] Token + int16 comp_length + int16 plain_length + char[comp_length]
 		if(pPacket->m_DataSize >= (int)(sizeof(VERSIONSRV_DDNETLIST) + 8) &&
 			mem_comp(pPacket->m_pData, VERSIONSRV_DDNETLIST, sizeof(VERSIONSRV_DDNETLIST)) == 0 &&
 			mem_comp((char*)pPacket->m_pData+sizeof(VERSIONSRV_DDNETLIST), m_aDDNetSrvListToken, 4) == 0)
@@ -1273,15 +1273,15 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 	if(pPacket->m_DataSize == (int) sizeof(SERVERBROWSE_COUNT) + 2 && mem_comp(pPacket->m_pData, SERVERBROWSE_COUNT, sizeof(SERVERBROWSE_COUNT)) == 0)
 	{
 		unsigned char *pP = (unsigned char*) pPacket->m_pData;
-		pP += sizeof(SERVERBROWSE_COUNT);				
-		int ServerCount = ((*pP)<<8) | *(pP+1); 
+		pP += sizeof(SERVERBROWSE_COUNT);
+		int ServerCount = ((*pP)<<8) | *(pP+1);
 		int ServerID = -1;
 		for(int i = 0; i < IMasterServer::MAX_MASTERSERVERS; i++)
 		{
 			if(!m_pMasterServer->IsValid(i))
 				continue;
 			NETADDR tmp = m_pMasterServer->GetAddr(i);
-			if(net_addr_comp(&pPacket->m_Address, &tmp) == 0)			
+			if(net_addr_comp(&pPacket->m_Address, &tmp) == 0)
 			{
 				ServerID = i;
 				break;
@@ -1388,7 +1388,7 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 		if(!Up.Error())
 		{
 			// sort players
-			qsort(Info.m_aClients, Info.m_NumClients, sizeof(*Info.m_aClients), PlayerScoreComp);
+			qsort(Info.m_aClients, Info.m_NumClients, sizeof(*Info.m_aClients), PlayerScoreNameComp);
 
 			pEntry = m_ServerBrowser.Find(pPacket->m_Address);
 			if (!pEntry || !pEntry->m_GotInfo)
@@ -1463,7 +1463,7 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 		{
 			// sort players
 			if (Offset + 24 >= Info.m_NumClients)
-				qsort(Info.m_aClients, Info.m_NumClients, sizeof(*Info.m_aClients), PlayerScoreComp);
+				qsort(Info.m_aClients, Info.m_NumClients, sizeof(*Info.m_aClients), PlayerScoreNameComp);
 
 			m_ServerBrowser.Set(pPacket->m_Address, IServerBrowser::SET_TOKEN, Token, &Info);
 
@@ -2484,6 +2484,7 @@ void CClient::RegisterInterfaces()
 	Kernel()->RegisterInterface(static_cast<IUpdater*>(&m_Updater));
 #endif
 	Kernel()->RegisterInterface(static_cast<IFriends*>(&m_Friends));
+	Kernel()->ReregisterInterface(static_cast<IFriends*>(&m_Foes));
 }
 
 void CClient::InitInterfaces()
@@ -2504,7 +2505,7 @@ void CClient::InitInterfaces()
 	m_pStorage = Kernel()->RequestInterface<IStorage>();
 
 	m_DemoEditor.Init(m_pGameClient->NetVersion(), &m_SnapshotDelta, m_pConsole, m_pStorage);
-	
+
 	m_ServerBrowser.SetBaseInfo(&m_NetClient[2], m_pGameClient->NetVersion());
 
 	m_Fetcher.Init();
@@ -2514,6 +2515,7 @@ void CClient::InitInterfaces()
 #endif
 
 	m_Friends.Init();
+	m_Foes.Init(true);
 
 	IOHANDLE newsFile = m_pStorage->OpenFile("ddnet-news.txt", IOFLAG_READ, IStorage::TYPE_SAVE);
 	if (newsFile)
@@ -2625,7 +2627,7 @@ void CClient::Run()
 
 	// process pending commands
 	m_pConsole->StoreCommands(false);
-	
+
 	bool LastD = false;
 	bool LastQ = false;
 	bool LastE = false;
@@ -2747,7 +2749,7 @@ void CClient::Run()
 				m_EditorActive = false;
 
 			Update();
-			
+
 			if((g_Config.m_GfxBackgroundRender || m_pGraphics->WindowOpen()) && (!g_Config.m_GfxAsyncRenderOld || m_pGraphics->IsIdle()))
 			{
 				m_RenderFrames++;
@@ -2985,7 +2987,7 @@ void CClient::DemoSliceEnd()
 void CClient::Con_DemoSliceBegin(IConsole::IResult *pResult, void *pUserData)
 {
 	CClient *pSelf = (CClient *)pUserData;
-	pSelf->DemoSliceBegin();	
+	pSelf->DemoSliceBegin();
 }
 
 void CClient::Con_DemoSliceEnd(IConsole::IResult *pResult, void *pUserData)
@@ -3129,6 +3131,8 @@ void CClient::Con_AddDemoMarker(IConsole::IResult *pResult, void *pUserData)
 {
 	CClient *pSelf = (CClient *)pUserData;
 	pSelf->DemoRecorder_AddDemoMarker(RECORDER_MANUAL);
+	pSelf->DemoRecorder_AddDemoMarker(RECORDER_RACE);
+	pSelf->DemoRecorder_AddDemoMarker(RECORDER_AUTO);
 }
 
 void CClient::ServerBrowserUpdate()
@@ -3292,11 +3296,11 @@ int main(int argc, const char **argv) // ignore_convention
 	pClient->InitInterfaces();
 
 	// execute config file
-	IOHANDLE file = pStorage->OpenFile("settings_ddnet.cfg", IOFLAG_READ, IStorage::TYPE_ALL);
+	IOHANDLE file = pStorage->OpenFile(CONFIG_FILE, IOFLAG_READ, IStorage::TYPE_ALL);
 	if(file)
 	{
 		io_close(file);
-		pConsole->ExecuteFile("settings_ddnet.cfg");
+		pConsole->ExecuteFile(CONFIG_FILE);
 	}
 	else // fallback
 	{

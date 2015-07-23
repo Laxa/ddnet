@@ -41,7 +41,7 @@
 
 		#include <Carbon/Carbon.h>
 	#endif
-	
+
 	#if defined(__ANDROID__)
 		#include <android/log.h>
 	#endif
@@ -942,7 +942,9 @@ int net_addr_from_str(NETADDR *addr, const char *string)
 				return -1;
 		}
 #else
-		if(inet_pton(AF_INET6, buf, &sa6) != 1)
+		sa6.sin6_family = AF_INET6;
+
+		if(inet_pton(AF_INET6, buf, &sa6.sin6_addr) != 1)
 			return -1;
 #endif
 		sockaddr_to_netaddr((struct sockaddr *)&sa6, addr);
@@ -1739,7 +1741,7 @@ int fs_remove(const char *filename)
 }
 
 int fs_rename(const char *oldname, const char *newname)
-{	
+{
 #if defined(CONF_FAMILY_WINDOWS)
 	if(MoveFile(oldname, newname) != 0)
 		return 1;
@@ -1875,18 +1877,14 @@ int str_format(char *buffer, int buffer_size, const char *format, ...)
 
 char *str_trim_words(char *str, int words)
 {
-    while (words && *str)
-    {
-        if (isspace(*str) && !isspace(*(str + 1)))
-        {
-            words--;
-        }
-        str++;
-    }
-    return str;
+	while (words && *str)
+	{
+		if (isspace(*str) && !isspace(*(str + 1)))
+			words--;
+		str++;
+	}
+	return str;
 }
-
-
 
 /* makes sure that the string only contains the characters between 32 and 127 */
 void str_sanitize_strong(char *str_in)
@@ -2192,7 +2190,7 @@ const char *str_utf8_skip_whitespaces(const char *str)
 	return str;
 }
 
-static int str_utf8_isstart(char c)
+int str_utf8_isstart(char c)
 {
 	if((c&0xC0) == 0x80) /* 10xxxxxx */
 		return 0;

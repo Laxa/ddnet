@@ -1300,7 +1300,7 @@ void CMenus::RenderServerbrowser(CUIRect MainView)
 		else if(State >= IUpdater::GETTING_MANIFEST && State < IUpdater::NEED_RESTART)
 		{
 			CUIRect ProgressBar, Percent;
-			Part.VSplitLeft(100.0f, &ProgressBar, &Percent);	
+			Part.VSplitLeft(100.0f, &ProgressBar, &Percent);
 			ProgressBar.y += 2.0f;
 			ProgressBar.HMargin(1.0f, &ProgressBar);
 			RenderTools()->DrawUIRect(&ProgressBar, vec4(1.0f, 1.0f, 1.0f, 0.25f), CUI::CORNER_ALL, 5.0f);
@@ -1316,7 +1316,7 @@ void CMenus::RenderServerbrowser(CUIRect MainView)
 			TextRender()->TextColor(1.0f, 0.4f, 0.4f, 1.0f);
 		}
 		else
-			str_format(aBuf, sizeof(aBuf), Localize("Current Version: %s"), GAME_VERSION);
+			str_format(aBuf, sizeof(aBuf), Localize("Current version: %s"), GAME_VERSION);
 		UI()->DoLabelScaled(&Button, aBuf, 14.0f, -1);
 		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 #endif

@@ -79,6 +79,7 @@ class CClient : public IClient, public CDemoPlayer::IListner
 	class CFetcher m_Fetcher;
 	class CUpdater m_Updater;
 	class CFriends m_Friends;
+	class CFriends m_Foes;
 	class CMapChecker m_MapChecker;
 
 	char m_aServerAddressStr[256];
@@ -87,7 +88,7 @@ class CClient : public IClient, public CDemoPlayer::IListner
 	int64 m_LocalStartTime;
 
 	int m_DebugFont;
-	
+
 	int64 m_LastRenderTime;
 	float m_RenderFrameTimeLow;
 	float m_RenderFrameTimeHigh;
@@ -189,7 +190,7 @@ class CClient : public IClient, public CDemoPlayer::IListner
 	volatile int m_GfxState;
 	static void GraphicsThreadProxy(void *pThis) { ((CClient*)pThis)->GraphicsThread(); }
 	void GraphicsThread();
-  vec3 GetColorV3(int v);
+	vec3 GetColorV3(int v);
 
 	char m_aDDNetSrvListToken[4];
 	bool m_DDNetSrvListTokenSet;
@@ -283,7 +284,7 @@ public:
 	const char *LoadMap(const char *pName, const char *pFilename, unsigned WantedCrc);
 	const char *LoadMapSearch(const char *pMapName, int WantedCrc);
 
-	static int PlayerScoreComp(const void *a, const void *b);
+	static int PlayerScoreNameComp(const void *a, const void *b);
 
 	void ProcessConnlessPacket(CNetChunk *pPacket);
 	void ProcessServerPacket(CNetChunk *pPacket);
@@ -365,5 +366,7 @@ public:
 
 	void RequestDDNetSrvList();
 	bool EditorHasUnsavedData() { return m_pEditor->HasUnsavedData(); }
+
+	virtual IFriends* Foes() {return &m_Foes; }
 };
 #endif

@@ -670,7 +670,7 @@ void CEditor::RenderBackground(CUIRect View, int Texture, float Size, float Brig
 	Graphics()->QuadsEnd();
 }
 
-int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, int Current, int Min, int Max, int Step, float Scale, const char *pToolTip)
+int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, int Current, int Min, int Max, int Step, float Scale, const char *pToolTip, bool isDegree)
 {
 	// logic
 	static float s_Value;
@@ -760,12 +760,17 @@ int CEditor::UiDoValueSelector(void *pID, CUIRect *pRect, const char *pLabel, in
 
 		// render
 		char aBuf[128];
-		str_format(aBuf, sizeof(aBuf),"%s %d", pLabel, Current);
+		if(pLabel[0] != '\0')
+			str_format(aBuf, sizeof(aBuf),"%s %d", pLabel, Current);
+		else if(isDegree)
+			str_format(aBuf, sizeof(aBuf),"%d°", Current);
+		else
+			str_format(aBuf, sizeof(aBuf),"%d", Current);
 		RenderTools()->DrawUIRect(pRect, GetButtonColor(pID, 0), CUI::CORNER_ALL, 5.0f);
 		pRect->y += pRect->h/2.0f-7.0f;
 		UI()->DoLabel(pRect, aBuf, 10, 0, -1);
 	}
-	
+
 	return Current;
 }
 
@@ -1035,7 +1040,7 @@ void CEditor::DoToolbar(CUIRect ToolBar)
 				s_RotationAmount = max(90, (s_RotationAmount/90)*90);
 				break;
 			}
-		s_RotationAmount = UiDoValueSelector(&s_RotationAmount, &Button, "", s_RotationAmount, TileLayer?90:1, 359, TileLayer?90:1, TileLayer?10.0f:2.0f, "Rotation of the brush in degrees. Use left mouse button to drag and change the value. Hold shift to be more precise.");
+		s_RotationAmount = UiDoValueSelector(&s_RotationAmount, &Button, "", s_RotationAmount, TileLayer?90:1, 359, TileLayer?90:1, TileLayer?10.0f:2.0f, "Rotation of the brush in degrees. Use left mouse button to drag and change the value. Hold shift to be more precise.", true);
 
 		TB_Top.VSplitLeft(5.0f, &Button, &TB_Top);
 		TB_Top.VSplitLeft(30.0f, &Button, &TB_Top);
@@ -1814,7 +1819,7 @@ void CEditor::DoQuadEnvelopes(const array<CQuad> &lQuads, int TexID)
 	//Draw Quads
 	Graphics()->TextureSet(TexID);
 	Graphics()->QuadsBegin();
-	
+
 	for(int j = 0; j < Num; j++)
 	{
 		if(!apEnvelope[j])
@@ -1927,7 +1932,7 @@ void CEditor::DoQuadEnvPoint(const CQuad *pQuad, int QIndex, int PIndex)
 	else
 		IgnoreGrid = false;
 
-   if(UI()->ActiveItem() == pID && s_ActQIndex == QIndex)
+	if(UI()->ActiveItem() == pID && s_ActQIndex == QIndex)
 	{
 		if(s_Operation == OP_MOVE)
 		{
@@ -2421,7 +2426,7 @@ void CEditor::DoMapEditor(CUIRect View, CUIRect ToolBar)
 			}
 		}
 
-		
+
 	}
 	else if(UI()->ActiveItem() == s_pEditorID)
 	{
@@ -2612,6 +2617,19 @@ int CEditor::DoProperties(CUIRect *pToolBox, CProperty *pProps, int *pIDs, int *
 		else if(pProps[i].m_Type == PROPTYPE_INT_SCROLL)
 		{
 			int NewValue = UiDoValueSelector(&pIDs[i], &Shifter, "", pProps[i].m_Value, pProps[i].m_Min, pProps[i].m_Max, 1, 1.0f, "Use left mouse button to drag and change the value. Hold shift to be more precise. Rightclick to edit as text.");
+			if(NewValue != pProps[i].m_Value)
+			{
+				*pNewVal = NewValue;
+				Change = i;
+			}
+		}
+		else if(pProps[i].m_Type == PROPTYPE_ANGLE_SCROLL)
+		{
+			bool Shift = Input()->KeyPressed(KEY_LSHIFT) || Input()->KeyPressed(KEY_RSHIFT);
+			int Value = pProps[i].m_Value;
+			if (!Shift && UI()->MouseButton(0) && UI()->ActiveItem() == &pIDs[i])
+				Value = (Value / 45) * 45;
+			int NewValue = UiDoValueSelector(&pIDs[i], &Shifter, "", Value, pProps[i].m_Min, Shift ? pProps[i].m_Max : 315, Shift ? 1 : 45, Shift ? 1.0f : 10.0f, "Use left mouse button to drag and change the value. Hold shift to be more precise. Rightclick to edit as text.");
 			if(NewValue != pProps[i].m_Value)
 			{
 				*pNewVal = NewValue;
@@ -3021,14 +3039,14 @@ void CEditor::AddSound(const char *pFileName, int StorageType, void *pUser)
 				break;
 			}
 	}
-	
+
 	pEditor->m_Dialog = DIALOG_NONE;
 }
 
 void CEditor::ReplaceSound(const char *pFileName, int StorageType, void *pUser)
 {
 	CEditor *pEditor = (CEditor *)pUser;
-	
+
 	// load external
 	IOHANDLE SoundFile = pEditor->Storage()->OpenFile(pFileName, IOFLAG_READ, StorageType);
 	if(!SoundFile)
@@ -3051,7 +3069,7 @@ void CEditor::ReplaceSound(const char *pFileName, int StorageType, void *pUser)
 	io_read(SoundFile, pData, (unsigned) DataSize);
 	io_close(SoundFile);
 
-	// 
+	//
 	CEditorSound *pSound = pEditor->m_Map.m_lSounds[pEditor->m_SelectedSound];
 	int External = pSound->m_External;
 
@@ -3161,7 +3179,7 @@ int CEditor::PopupSound(CEditor *pEditor, CUIRect View)
 		}
 	}
 
-	
+
 	View.HSplitTop(10.0f, &Slot, &View);
 	View.HSplitTop(12.0f, &Slot, &View);
 	if(pEditor->DoButton_MenuItem(&s_ReplaceButton, "Replace", 0, &Slot, 0, "Replaces the sound with a new one"))
@@ -3477,7 +3495,7 @@ void CEditor::RenderSounds(CUIRect ToolBox, CUIRect ToolBar, CUIRect View)
 			str_copy(aBuf, m_Map.m_lSounds[i]->m_aName, sizeof(aBuf));
 			ToolBox.HSplitTop(12.0f, &Slot, &ToolBox);
 
-			
+
 			int Selected = m_SelectedSound == i;
 			for(int x = 0; x < m_Map.m_lGroups.size(); ++x)
 				for(int j = 0; j < m_Map.m_lGroups[x]->m_lLayers.size(); ++j)
@@ -4770,9 +4788,9 @@ void CEditor::Render()
 		DoMapEditor(View, ToolBar);
 
 	// do zooming
-	if(Input()->KeyDown(KEY_KP_MINUS) && m_Dialog == DIALOG_NONE && m_EditBoxActive == 0)
+	if(Input()->KeyPresses(KEY_KP_MINUS) && m_Dialog == DIALOG_NONE && m_EditBoxActive == 0)
 		m_ZoomLevel += 50;
-	if(Input()->KeyDown(KEY_KP_PLUS) && m_Dialog == DIALOG_NONE && m_EditBoxActive == 0)
+	if(Input()->KeyPresses(KEY_KP_PLUS) && m_Dialog == DIALOG_NONE && m_EditBoxActive == 0)
 		m_ZoomLevel -= 50;
 	if(Input()->KeyDown(KEY_KP_MULTIPLY) && m_Dialog == DIALOG_NONE && m_EditBoxActive == 0)
 	{

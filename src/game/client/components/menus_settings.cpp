@@ -570,9 +570,9 @@ static CKeyInfo gs_aKeys[] =
 	{ "Prev. weapon", "+prevweapon", 0 },
 	{ "Vote yes", "vote yes", 0 },
 	{ "Vote no", "vote no", 0 },
-	{ "Chat", "chat all", 0 },
-	{ "Team chat", "chat team", 0 },
-	{ "Converse", "chat all /c ", 0 },
+	{ "Chat", "+show_chat; chat all", 0 },
+	{ "Team chat", "+show_chat; chat team", 0 },
+	{ "Converse", "+show_chat; chat all /c ", 0 },
 	{ "Show chat", "+show_chat", 0 },
 	{ "Emoticon", "+emote", 0 },
 	{ "Spectator mode", "+spectate", 0 },
@@ -1126,7 +1126,7 @@ void CMenus::RenderLanguageSelection(CUIRect MainView)
 			vec4 Color(1.0f, 1.0f, 1.0f, 1.0f);
 			m_pClient->m_pCountryFlags->Render(r.front().m_CountryCode, &Color, Rect.x, Rect.y, Rect.w, Rect.h);
 			Item.m_Rect.HSplitTop(2.0f, 0, &Item.m_Rect);
- 			UI()->DoLabelScaled(&Item.m_Rect, r.front().m_Name, 16.0f, -1);
+			UI()->DoLabelScaled(&Item.m_Rect, r.front().m_Name, 16.0f, -1);
 		}
 	}
 

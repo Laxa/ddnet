@@ -49,5 +49,6 @@ bam.exe
 *.cmd
 .settings
 *.opensdf
+*.pyc
 
 DDNet*
