@@ -3063,6 +3063,19 @@ void CClient::Con_Play(IConsole::IResult *pResult, void *pUserData)
 	pSelf->DemoPlayer_Play(pResult->GetString(0), IStorage::TYPE_ALL);
 }
 
+void CClient::Con_DemoPlay(IConsole::IResult *pResult, void *pUserData)
+{
+	CClient *pSelf = (CClient *)pUserData;
+	if(pSelf->m_DemoPlayer.IsPlaying()){
+		if(pSelf->m_DemoPlayer.BaseInfo()->m_Paused){
+			pSelf->m_DemoPlayer.Unpause();
+		}
+		else{
+			pSelf->m_DemoPlayer.Pause();
+		}
+	}
+}
+
 void CClient::DemoRecorder_Start(const char *pFilename, bool WithTimestamp, int Recorder)
 {
 	if(State() != IClient::STATE_ONLINE)
@@ -3087,12 +3100,14 @@ void CClient::DemoRecorder_HandleAutoStart()
 	if(g_Config.m_ClAutoDemoRecord)
 	{
 		DemoRecorder_Stop(RECORDER_AUTO);
-		DemoRecorder_Start("auto/autorecord", true, RECORDER_AUTO);
+		char aBuf[512];
+		str_format(aBuf, sizeof(aBuf), "auto/%s", m_aCurrentMap);
+		DemoRecorder_Start(aBuf, true, RECORDER_AUTO);
 		if(g_Config.m_ClAutoDemoMax)
 		{
 			// clean up auto recorded demos
 			CFileCollection AutoDemos;
-			AutoDemos.Init(Storage(), "demos/auto", "autorecord", ".demo", g_Config.m_ClAutoDemoMax);
+			AutoDemos.Init(Storage(), "demos/auto", "" /* empty for wild card */, ".demo", g_Config.m_ClAutoDemoMax);
 		}
 	}
 }
@@ -3118,7 +3133,7 @@ void CClient::Con_Record(IConsole::IResult *pResult, void *pUserData)
 	if(pResult->NumArguments())
 		pSelf->DemoRecorder_Start(pResult->GetString(0), false, RECORDER_MANUAL);
 	else
-		pSelf->DemoRecorder_Start("demo", true, RECORDER_MANUAL);
+		pSelf->DemoRecorder_Start(pSelf->m_aCurrentMap, true, RECORDER_MANUAL);
 }
 
 void CClient::Con_StopRecord(IConsole::IResult *pResult, void *pUserData)
@@ -3181,6 +3196,7 @@ void CClient::RegisterCommands()
 	m_pConsole->Register("remove_favorite", "s", CFGFLAG_CLIENT, Con_RemoveFavorite, this, "Remove a server from favorites");
 	m_pConsole->Register("demo_slice_start", "", CFGFLAG_CLIENT, Con_DemoSliceBegin, this, "");
 	m_pConsole->Register("demo_slice_end", "", CFGFLAG_CLIENT, Con_DemoSliceEnd, this, "");
+	m_pConsole->Register("demo_play", "", CFGFLAG_CLIENT, Con_DemoPlay, this, "Play demo");
 
 	// used for server browser update
 	m_pConsole->Chain("br_filter_string", ConchainServerBrowserUpdate, this);
@@ -3308,7 +3324,16 @@ int main(int argc, const char **argv) // ignore_convention
 	}
 
 	// execute autoexec file
-	pConsole->ExecuteFile("autoexec.cfg");
+	file = pStorage->OpenFile(AUTOEXEC_CLIENT_FILE, IOFLAG_READ, IStorage::TYPE_ALL);
+	if(file)
+	{
+		io_close(file);
+		pConsole->ExecuteFile(AUTOEXEC_CLIENT_FILE);
+	}
+	else // fallback
+	{
+		pConsole->ExecuteFile(AUTOEXEC_FILE);
+	}
 
 	// parse the command line arguments
 	if(argc > 1) // ignore_convention
