@@ -11,6 +11,8 @@ autoexec.cfg
 ddnet_srcs.sh
 
 crapnet*
+config_store*
+config_retrieve*
 dilate*
 fake_server*
 map_resave*
@@ -20,6 +22,7 @@ packetgen*
 teeworlds*
 teeworlds_srv*
 tileset_border*
+twping*
 versionsrv*
 
 Debug
