@@ -26,7 +26,7 @@ Import("other/mysql/mysql.lua")
 config = NewConfig()
 config:Add(OptCCompiler("compiler"))
 config:Add(OptTestCompileC("stackprotector", "int main(){return 0;}", "-fstack-protector -fstack-protector-all"))
-config:Add(OptTestCompileC("minmacosxsdk", "int main(){return 0;}", "-mmacosx-version-min=10.5 -isysroot /Developer/SDKs/MacOSX10.5.sdk"))
+config:Add(OptTestCompileC("minmacosxsdk", "int main(){return 0;}", "-mmacosx-version-min=10.7 -isysroot /Developer/SDKs/MacOSX10.7.sdk"))
 config:Add(OptTestCompileC("macosxppc", "int main(){return 0;}", "-arch ppc"))
 config:Add(OptLibrary("zlib", "zlib.h", false))
 config:Add(SDL.OptFind("sdl", true))
@@ -195,7 +195,7 @@ end
 function build(settings)
 	-- apply compiler settings
 	config.compiler:Apply(settings)
-	
+
 	--settings.objdir = Path("objs")
 	settings.cc.Output = Intermediate_Output
 
@@ -235,11 +235,13 @@ function build(settings)
 			-- disable visibility attribute support for gcc on windows
 			settings.cc.defines:Add("NO_VIZ")
 		elseif platform == "macosx" then
-			settings.cc.flags:Add("-mmacosx-version-min=10.5")
-			settings.link.flags:Add("-mmacosx-version-min=10.5")
+			settings.cc.flags:Add("-mmacosx-version-min=10.7")
+			settings.link.flags:Add("-mmacosx-version-min=10.7")
+			settings.cc.flags:Add("-stdlib=libc++")
+			settings.link.flags:Add("-stdlib=libc++")
 			if config.minmacosxsdk.value == 1 then
-				settings.cc.flags:Add("-isysroot /Developer/SDKs/MacOSX10.5.sdk")
-				settings.link.flags:Add("-isysroot /Developer/SDKs/MacOSX10.5.sdk")
+				settings.cc.flags:Add("-isysroot /Developer/SDKs/MacOSX10.7.sdk")
+				settings.link.flags:Add("-isysroot /Developer/SDKs/MacOSX10.7.sdk")
 			end
 		elseif config.stackprotector.value == 1 then
 			settings.cc.flags:Add("-fstack-protector", "-fstack-protector-all")
@@ -255,14 +257,12 @@ function build(settings)
 		if platform == "macosx" then
 			settings.link.frameworks:Add("Carbon")
 			settings.link.frameworks:Add("AppKit")
-			settings.link.libs:Add("dl")
 			settings.link.libs:Add("crypto")
 		else
 			settings.link.libs:Add("pthread")
-			settings.link.libs:Add("dl")
 			settings.link.libs:Add("rt")
 		end
-		
+
 		if platform == "solaris" then
 			settings.link.flags:Add("-lsocket")
 			settings.link.flags:Add("-lnsl")
@@ -315,7 +315,6 @@ function build(settings)
 			client_settings.link.libs:Add("X11")
 			client_settings.link.libs:Add("GL")
 			client_settings.link.libs:Add("GLU")
-			client_settings.link.libs:Add("dl")
 		end
 
 	elseif family == "windows" then
@@ -342,6 +341,13 @@ function build(settings)
 	config.opus:Apply(client_settings)
 	config.ogg:Apply(client_settings)
 
+	if family == "unix" and (platform == "macosx" or platform == "linux") then
+		engine_settings.link.libs:Add("dl")
+		server_settings.link.libs:Add("dl")
+		client_settings.link.libs:Add("dl")
+		launcher_settings.link.libs:Add("dl")
+	end
+
 	engine = Compile(engine_settings, Collect("src/engine/shared/*.cpp", "src/base/*.c"))
 	client = Compile(client_settings, Collect("src/engine/client/*.cpp"))
 	server = Compile(server_settings, Collect("src/engine/server/*.cpp"))
@@ -363,7 +369,6 @@ function build(settings)
 	if platform == "macosx" then
 		notification_settings = client_settings:Copy()
 		notification_settings.cc.flags:Add("-x objective-c++")
-		notification_settings.cc.flags:Add("-I/System/Library/Frameworks/Foundation.framework/Versions/C/Headers")
 		client_notification = Compile(notification_settings, "src/osx/notification.m")
 		client_osxlaunch = Compile(client_settings, "src/osxlaunch/client.m")
 		server_osxlaunch = Compile(launcher_settings, "src/osxlaunch/server.m")
@@ -461,14 +466,14 @@ if platform == "macosx" then
 	debug_sql_settings_ppc.cc.flags:Add("-arch ppc")
 	debug_sql_settings_ppc.link.flags:Add("-arch ppc")
 	debug_sql_settings_ppc.cc.defines:Add("CONF_DEBUG", "CONF_SQL")
-	
+
 	release_settings_ppc = release_settings:Copy()
 	release_settings_ppc.config_name = "release_ppc"
 	release_settings_ppc.config_ext = "_ppc"
 	release_settings_ppc.cc.flags:Add("-arch ppc")
 	release_settings_ppc.link.flags:Add("-arch ppc")
 	release_settings_ppc.cc.defines:Add("CONF_RELEASE")
-	
+
 	release_sql_settings_ppc = release_sql_settings:Copy()
 	release_sql_settings_ppc.config_name = "sql_release_ppc"
 	release_sql_settings_ppc.config_ext = "_sql_ppc"
@@ -502,7 +507,7 @@ if platform == "macosx" then
 		release_settings_x86.cc.flags:Add("-arch i386")
 		release_settings_x86.link.flags:Add("-arch i386")
 		release_settings_x86.cc.defines:Add("CONF_RELEASE")
-	
+
 		release_sql_settings_x86 = release_sql_settings:Copy()
 		release_sql_settings_x86.config_name = "sql_release_x86"
 		release_sql_settings_x86.config_ext = "_sql_x86"
@@ -537,7 +542,7 @@ if platform == "macosx" then
 		release_settings_x86_64.cc.flags:Add("-arch x86_64")
 		release_settings_x86_64.link.flags:Add("-arch x86_64")
 		release_settings_x86_64.cc.defines:Add("CONF_RELEASE")
-	
+
 		release_sql_settings_x86_64 = release_sql_settings:Copy()
 		release_sql_settings_x86_64.config_name = "sql_release_x86_64"
 		release_sql_settings_x86_64.config_ext = "_sql_x86_64"
@@ -552,7 +557,7 @@ if platform == "macosx" then
 	end
 
 	DefaultTarget("game_debug_x86")
-	
+
 	if config.macosxppc.value == 1 then
 		if arch == "ia32" then
 			PseudoTarget("release", ppc_r, x86_r)

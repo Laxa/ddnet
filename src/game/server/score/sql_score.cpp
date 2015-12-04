@@ -831,7 +831,7 @@ void CSqlScore::ShowTeamTop5Thread(void *pUser)
 				char aNames[2300];
 				int Rank = 0;
 				float Time = 0;
-				int aCuts[Rows];
+				int aCuts[320]; // 64 * 5
 				int CutPos = 0;
 
 				aNames[0] = '\0';
@@ -1204,7 +1204,7 @@ void CSqlScore::FuzzyString(char *pString)
 // anti SQL injection
 void CSqlScore::ClearString(char *pString, int size)
 {
-	char newString[size*2-1];
+	char *newString = (char *)malloc(size * 2 - 1);
 	int pos = 0;
 
 	for(int i=0;i<size;i++)
@@ -1233,6 +1233,7 @@ void CSqlScore::ClearString(char *pString, int size)
 	newString[pos] = '\0';
 
 	strcpy(pString,newString);
+	free(newString);
 }
 
 void CSqlScore::agoTimeToString(int agoTime, char agoString[])

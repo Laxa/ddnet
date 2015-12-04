@@ -110,6 +110,11 @@ const char *CGameClient::Version() { return GAME_VERSION; }
 const char *CGameClient::NetVersion() { return GAME_NETVERSION; }
 const char *CGameClient::GetItemName(int Type) { return m_NetObjHandler.GetObjName(Type); }
 
+const CNetObj_PlayerInput &CGameClient::getPlayerInput(int dummy)
+{
+	return m_pControls->m_InputData[dummy];
+}
+
 void CGameClient::ResetDummyInput()
 {
 	m_pControls->ResetInput(!g_Config.m_ClDummy);
@@ -461,7 +466,7 @@ void CGameClient::UpdatePositions()
 	// local character position
 	if(g_Config.m_ClPredict && Client()->State() != IClient::STATE_DEMOPLAYBACK)
 	{
-		if (!g_Config.m_ClAntiPingPlayers)
+		if(!AntiPingPlayers())
 		{
 			if(!m_Snap.m_pLocalCharacter || (m_Snap.m_pGameInfoObj && m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER))
 			{
@@ -488,7 +493,7 @@ void CGameClient::UpdatePositions()
 			vec2(m_Snap.m_pLocalCharacter->m_X, m_Snap.m_pLocalCharacter->m_Y), Client()->IntraGameTick());
 	}
 
-	if (g_Config.m_ClAntiPingPlayers)
+	if (AntiPingPlayers())
 	{
 		for (int i = 0; i < MAX_CLIENTS; i++)
 		{
@@ -579,14 +584,6 @@ void CGameClient::OnRender()
 	m_NewTick = false;
 	m_NewPredictedTick = false;
 
-	if(g_Config.m_ClAntiPing != m_CurrentAntiPing)
-	{
-		g_Config.m_ClAntiPingPlayers = g_Config.m_ClAntiPing;
-		g_Config.m_ClAntiPingGrenade = g_Config.m_ClAntiPing;
-		g_Config.m_ClAntiPingWeapons = g_Config.m_ClAntiPing;
-		m_CurrentAntiPing = g_Config.m_ClAntiPing;
-	}
-
 	if(g_Config.m_ClDummy && !Client()->DummyConnected())
 		g_Config.m_ClDummy = 0;
 
@@ -664,7 +661,7 @@ void CGameClient::OnMessage(int MsgId, CUnpacker *pUnpacker, bool IsDummy)
 
 			g_GameClient.m_pItems->AddExtraProjectile(&Proj);
 
-			if(g_Config.m_ClAntiPingWeapons && Proj.m_Type == WEAPON_GRENADE && !UseExtraInfo(&Proj))
+			if(AntiPingWeapons() && Proj.m_Type == WEAPON_GRENADE && !UseExtraInfo(&Proj))
 			{
 				vec2 StartPos;
 				vec2 Direction;
@@ -1066,12 +1063,24 @@ void CGameClient::OnNewSnapshot()
 			else if(Item.m_Type == NETOBJTYPE_GAMEINFO)
 			{
 				static bool s_GameOver = 0;
+				static bool s_GamePaused = 0;
 				m_Snap.m_pGameInfoObj = (const CNetObj_GameInfo *)pData;
-				if(!s_GameOver && m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER)
+				bool CurrentTickGameOver = m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER;
+				if(!s_GameOver && CurrentTickGameOver)
 					OnGameOver();
-				else if(s_GameOver && !(m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER))
+				else if(s_GameOver && !CurrentTickGameOver)
 					OnStartGame();
-				s_GameOver = m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_GAMEOVER;
+				// Reset statboard when new round is started (RoundStartTick changed)
+				// New round is usually started after `restart` on server
+				if(m_Snap.m_pGameInfoObj->m_RoundStartTick != m_LastRoundStartTick
+						// In GamePaused or GameOver state RoundStartTick is updated on each tick
+						// hence no need to reset stats until player leaves GameOver
+						// and it would be a mistake to reset stats after or during the pause
+						&& !(CurrentTickGameOver || m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_PAUSED || s_GamePaused))
+					m_pStatboard->OnReset();
+				m_LastRoundStartTick = m_Snap.m_pGameInfoObj->m_RoundStartTick;
+				s_GameOver = CurrentTickGameOver;
+				s_GamePaused = m_Snap.m_pGameInfoObj->m_GameStateFlags&GAMESTATEFLAG_PAUSED;
 			}
 			else if(Item.m_Type == NETOBJTYPE_GAMEDATA)
 			{
@@ -1310,7 +1319,7 @@ void CGameClient::OnPredict()
 	}
 
 	static bool IsWeaker[2][MAX_CLIENTS] = {{0}};
-	if(g_Config.m_ClAntiPingPlayers)
+	if(AntiPingPlayers())
 		FindWeaker(IsWeaker);
 
 	// repredict character
@@ -1338,7 +1347,7 @@ void CGameClient::OnPredict()
 	int ReloadTimer = 0;
 	vec2 PrevPos;
 
-	if(g_Config.m_ClAntiPingWeapons)
+	if(AntiPingWeapons())
 	{
 		for(int Index = 0; Index < MaxProjectiles; Index++)
 			PredictedProjectiles[Index].Deactivate();
@@ -1419,7 +1428,7 @@ void CGameClient::OnPredict()
 			}
 		}
 
-		if(g_Config.m_ClAntiPingWeapons)
+		if(AntiPingWeapons())
 		{
 			const float ProximityRadius = 28.0f;
 			CNetObj_PlayerInput Input;
@@ -1593,7 +1602,7 @@ void CGameClient::OnPredict()
 		}
 
 		// calculate where everyone should move
-		if(g_Config.m_ClAntiPingPlayers)
+		if(AntiPingPlayers())
 		{
 			//first apply Tick to weaker players (players that the local client has strong hook against), then local, then stronger players
 			for(int h = 0; h < 3; h++)
@@ -1623,7 +1632,7 @@ void CGameClient::OnPredict()
 		}
 
 		// move all players and quantize their data
-		if(g_Config.m_ClAntiPingPlayers)
+		if(AntiPingPlayers())
 		{
 			// Everyone with weaker hook
 			for(int c = 0; c < MAX_CLIENTS; c++)
@@ -1700,7 +1709,7 @@ void CGameClient::OnPredict()
 		{
 			m_PredictedChar = *World.m_apCharacters[m_Snap.m_LocalClientID];
 
-			if (g_Config.m_ClAntiPingPlayers)
+			if (AntiPingPlayers())
 			{
 				for (int c = 0; c < MAX_CLIENTS; c++)
 				{
