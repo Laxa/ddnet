@@ -635,6 +635,8 @@ void CGameTeams::OnCharacterDeath(int ClientID, int Weapon)
 				if(m_Core.Team(i) == Team && i != ClientID && GameServer()->m_apPlayers[i])
 				{
 					GameServer()->m_apPlayers[i]->KillCharacter(WEAPON_SELF);
+					if (Weapon == WEAPON_SELF)
+						GameServer()->m_apPlayers[i]->Respawn(true); // spawn the rest of team with weak hook on the killer
 					GameServer()->SendChatTarget(i, aBuf);
 				}
 		}
