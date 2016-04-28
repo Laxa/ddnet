@@ -1412,7 +1412,7 @@ void CGameClient::OnPredict()
 			if(!World.m_apCharacters[c])
 				continue;
 
-			if(g_Config.m_ClAntiPingPlayers && Tick == Client()->PredGameTick())
+			if(AntiPingPlayers() && Tick == Client()->PredGameTick())
 				g_GameClient.m_aClients[c].m_PrevPredicted = *World.m_apCharacters[c];
 		}
 
@@ -2118,7 +2118,7 @@ void CLocalProjectile::Tick(int CurrentTick, int GameTickSpeed, int LocalClientI
 	vec2 NewPos;
 	int Collide = 0;
 	if(m_pCollision)
-		Collide = m_pCollision->IntersectLine(PrevPos, CurPos, &ColPos, &NewPos, false);
+		Collide = m_pCollision->IntersectLine(PrevPos, CurPos, &ColPos, &NewPos);
 	int Target = m_pGameClient->IntersectCharacter(PrevPos, ColPos, m_Freeze ? 1.0f : 6.0f, &ColPos, m_Owner, m_pWorld);
 
 	bool isWeaponCollide = false;
