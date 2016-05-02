@@ -171,7 +171,8 @@ int CInput::Update()
 					break;
 				// handle keys
 				case SDL_KEYDOWN:
-					if(!(Event.key.keysym.mod & KMOD_LALT))
+					// See SDL_Keymod for possible modifiers
+					if(!(Event.key.keysym.mod & g_Config.m_InpIgnoredModifiers))
 					{
 						Key = KeycodeToKey(Event.key.keysym.sym);
 						Scancode = Event.key.keysym.scancode;
@@ -211,6 +212,7 @@ int CInput::Update()
 					if(Event.wheel.y > 0) Key = KEY_MOUSE_WHEEL_UP; // ignore_convention
 					if(Event.wheel.y < 0) Key = KEY_MOUSE_WHEEL_DOWN; // ignore_convention
 					Action |= IInput::FLAG_RELEASE;
+					Scancode = Key;
 					break;
 
 				case SDL_WINDOWEVENT:
@@ -224,10 +226,6 @@ int CInput::Update()
 #elif defined(__ANDROID__)
 							m_VideoRestartNeeded = 1;
 #endif
-							break;
-						case SDL_WINDOWEVENT_ENTER:
-						case SDL_WINDOWEVENT_LEAVE:
-							IgnoreKeys = true;
 							break;
 						case SDL_WINDOWEVENT_FOCUS_GAINED:
 							if(m_InputGrabbed)
