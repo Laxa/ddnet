@@ -171,7 +171,20 @@ int CInput::Update()
 					break;
 				// handle keys
 				case SDL_KEYDOWN:
-					// See SDL_Keymod for possible modifiers
+					// See SDL_Keymod for possible modifiers:
+					// NONE   =     0
+					// LSHIFT =     1
+					// RSHIFT =     2
+					// LCTRL  =    64
+					// RCTRL  =   128
+					// LALT   =   256
+					// RALT   =   512
+					// LGUI   =  1024
+					// RGUI   =  2048
+					// NUM    =  4096
+					// CAPS   =  8192
+					// MODE   = 16384
+					// Sum if you want to ignore multiple modifiers.
 					if(!(Event.key.keysym.mod & g_Config.m_InpIgnoredModifiers))
 					{
 						Key = KeycodeToKey(Event.key.keysym.sym);
@@ -236,7 +249,12 @@ int CInput::Update()
 						case SDL_WINDOWEVENT_FOCUS_LOST:
 							m_MouseFocus = false;
 							IgnoreKeys = true;
-							SDL_SetRelativeMouseMode(SDL_FALSE);
+							if(m_InputGrabbed)
+							{
+								MouseModeAbsolute();
+								// Remember that we had relative mouse
+								m_InputGrabbed = true;
+							}
 							break;
 #if defined(CONF_PLATFORM_MACOSX)	// Todo: remove this when fixed in SDL
 						case SDL_WINDOWEVENT_MAXIMIZED:
