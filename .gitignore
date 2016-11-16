@@ -12,6 +12,7 @@ autoexec.cfg
 ddnet_srcs.sh
 update.sh
 
+/confusables*
 /crapnet*
 /config_store*
 /config_retrieve*
