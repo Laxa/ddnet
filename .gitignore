@@ -34,6 +34,7 @@ bam
 build server.bat
 buildlog.txt
 bam.exe
+*.a
 *.bat
 .cproject
 .project
@@ -59,3 +60,8 @@ bam.exe
 *.dll
 
 DDNet*
+
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
