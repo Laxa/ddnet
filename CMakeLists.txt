@@ -228,7 +228,7 @@ generate_source("src/game/generated/server_data.h" "server_content_header")
 
 # Sources
 file(GLOB_RECURSE BASE "src/base/*.c" "src/base/*.cpp" "src/base/*.h")
-file(GLOB_RECURSE ENGINE_SHARED "src/engine/shared/*.cpp" "src/engine/shared/*.h") 
+file(GLOB_RECURSE ENGINE_SHARED "src/engine/shared/*.cpp" "src/engine/shared/*.h")
 file(GLOB GAME_SHARED "src/game/*.cpp" "src/game/*.h")
 set(GAME_GENERATED_SHARED "src/game/generated/protocol.cpp" "src/game/generated/protocol.h" "src/game/generated/nethash.cpp")
 
@@ -284,10 +284,17 @@ if(CLIENT)
     ${PLATFORM_CLIENT_LIBS}
   )
 
+  if(TARGET_OS STREQUAL "windows")
+    set(CLIENT_ICON "other/icons/DDNet.rc")
+  else()
+    set(CLIENT_ICON)
+  endif()
+
   # Target
   set(TARGET_CLIENT ${CLIENT_EXECUTABLE})
   add_executable(${TARGET_CLIENT}
     ${CLIENT_SRC}
+    ${CLIENT_ICON}
     ${DEPS_CLIENT}
     $<TARGET_OBJECTS:engine-shared>
     $<TARGET_OBJECTS:game-shared>
@@ -303,10 +310,6 @@ if(CLIENT)
     ${SDL2_INCLUDE_DIRS}
   )
   list(APPEND TARGETS_OWN ${TARGET_CLIENT})
-
-  if(TARGET_OS STREQUAL "windows")
-    target_sources(${TARGET_CLIENT} PRIVATE "other/icons/DDNet.rc")
-  endif()
 endif()
 
 
@@ -319,6 +322,11 @@ file(GLOB_RECURSE ENGINE_SERVER "src/engine/server/*.cpp" "src/engine/server/*.h
 file(GLOB_RECURSE GAME_SERVER "src/game/server/*.cpp" "src/game/server/*.h")
 set(GAME_GENERATED_SERVER "src/game/generated/server_data.cpp" "src/game/generated/server_data.h")
 set(SERVER_SRC ${ENGINE_SERVER} ${GAME_SERVER} ${GAME_GENERATED_SERVER})
+if(TARGET_OS STREQUAL "windows")
+  set(SERVER_ICON "other/icons/DDNet-Server.rc")
+else()
+  set(SERVER_ICON)
+endif()
 
 # Libraries
 set(LIBS_SERVER ${LIBS} ${MYSQL_LIBRARIES})
@@ -328,6 +336,7 @@ set(TARGET_SERVER ${SERVER_EXECUTABLE})
 add_executable(${TARGET_SERVER}
   ${DEPS}
   ${SERVER_SRC}
+  ${SERVER_ICON}
   $<TARGET_OBJECTS:engine-shared>
   $<TARGET_OBJECTS:game-shared>
 )
@@ -337,10 +346,6 @@ list(APPEND TARGETS_OWN ${TARGET_SERVER})
 if(MYSQL)
   target_compile_definitions(${TARGET_SERVER} PRIVATE -DCONF_SQL)
   target_include_directories(${TARGET_SERVER} PRIVATE ${MYSQL_INCLUDE_DIRS})
-endif()
-
-if(TARGET_OS STREQUAL "windows")
-  target_sources(${TARGET_SERVER} PRIVATE "other/icons/DDNet-Server.rc")
 endif()
 
 
@@ -370,17 +375,19 @@ set(TARGETS_TOOLS)
 file(GLOB TOOLS RELATIVE "${PROJECT_SOURCE_DIR}/src/tools/" "src/tools/*.cpp")
 foreach(T ${TOOLS})
   string(REGEX REPLACE "\\.cpp$" "" TOOL "${T}")
+  set(EXTRA_TOOL_SRC)
+  if(TOOL MATCHES "^(tileset_|dilate$)")
+    list(APPEND EXTRA_TOOL_SRC ${DEP_PNG})
+  endif()
+  if(TOOL MATCHES "^config_")
+    list(APPEND EXTRA_TOOL_SRC "src/tools/config_common.h")
+  endif()
   add_executable(${TOOL} EXCLUDE_FROM_ALL
     ${DEPS}
     src/tools/${TOOL}.cpp
+    ${EXTRA_TOOL_SRC}
     $<TARGET_OBJECTS:engine-shared>
   )
-  if(TOOL MATCHES "^(tileset_|dilate$)")
-    target_sources(${TOOL} PRIVATE ${DEP_PNG})
-  endif()
-  if(TOOL MATCHES "^config_")
-    target_sources(${TOOL} PRIVATE "src/tools/config_common.h")
-  endif()
   target_link_libraries(${TOOL} ${LIBS})
   list(APPEND TARGETS_TOOLS ${TOOL})
 endforeach()
@@ -435,7 +442,9 @@ foreach(target ${TARGETS_OWN})
     target_compile_options(${target} PRIVATE /wd4800) # Implicit conversion of int to bool.
   elseif(CMAKE_CXX_COMPILER_ID MATCHES Clang OR CMAKE_CXX_COMPILER_ID MATCHES GNU)
     target_compile_options(${target} PRIVATE -Wall)
-    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wdeclaration-after-statement>)
+    if(CMAKE_VERSION VERSION_GREATER 3.3 OR CMAKE_VERSION VERSION_EQUAL 3.3)
+      target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wdeclaration-after-statement>)
+    endif()
     #target_compile_options(${target} PRIVATE -Wextra)
     #target_compile_options(${target} PRIVATE -Wformat=2) # Warn about format strings.
   endif()
