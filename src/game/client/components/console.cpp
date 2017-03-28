@@ -810,4 +810,6 @@ void CGameConsole::OnConsoleInit()
 
 void CGameConsole::OnStateChange(int NewState, int OldState)
 {
+	if(OldState == IClient::STATE_ONLINE && NewState < IClient::STATE_LOADING)
+		m_RemoteConsole.m_UserGot = false;
 }
