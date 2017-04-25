@@ -20,6 +20,7 @@ void CGameTeams::Reset()
 		m_LastChat[i] = 0;
 		m_TeamLocked[i] = false;
 		m_IsSaving[i] = false;
+		m_Invited[i] = 0;
 	}
 }
 
@@ -233,6 +234,7 @@ void CGameTeams::ForceLeaveTeam(int ClientID)
 
 			// unlock team when last player leaves
 			SetTeamLock(m_Core.Team(ClientID), false);
+			ResetInvited(m_Core.Team(ClientID));
 		}
 	}
 
@@ -649,6 +651,22 @@ void CGameTeams::SetTeamLock(int Team, bool Lock)
 		m_TeamLocked[Team] = Lock;
 }
 
+void CGameTeams::ResetInvited(int Team)
+{
+	m_Invited[Team] = 0;
+}
+
+void CGameTeams::SetClientInvited(int Team, int ClientID, bool Invited)
+{
+	if(Team > TEAM_FLOCK && Team < TEAM_SUPER)
+	{
+		if(Invited)
+			m_Invited[Team] |= 1ULL << ClientID;
+		else
+			m_Invited[Team] &= ~(1ULL << ClientID);
+	}
+}
+
 void CGameTeams::KillSavedTeam(int Team)
 {
 	// Set so that no finish is accidentally given to some of the players
@@ -672,4 +690,5 @@ void CGameTeams::KillSavedTeam(int Team)
 
 	// unlock team when last player leaves
 	SetTeamLock(Team, false);
+	ResetInvited(Team);
 }
