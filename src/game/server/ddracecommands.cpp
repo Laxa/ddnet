@@ -335,7 +335,6 @@ void CGameContext::ConKill(IConsole::IResult *pResult, void *pUserData)
 void CGameContext::ConForcePause(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
-	CServer* pServ = (CServer*)pSelf->Server();
 	int Victim = pResult->GetVictim();
 	int Seconds = 0;
 	if (pResult->NumArguments() > 0)
@@ -345,8 +344,7 @@ void CGameContext::ConForcePause(IConsole::IResult *pResult, void *pUserData)
 	if (!pPlayer)
 		return;
 
-	pPlayer->m_ForcePauseTime = Seconds*pServ->TickSpeed();
-	pPlayer->m_Paused = CPlayer::PAUSED_FORCE;
+	pPlayer->ForcePause(Seconds);
 }
 
 void CGameContext::Mute(IConsole::IResult *pResult, NETADDR *Addr, int Secs,
@@ -475,6 +473,21 @@ void CGameContext::ConList(IConsole::IResult *pResult, void *pUserData)
 		pSelf->List(ClientID, pResult->GetString(0));
 	else
 		pSelf->List(ClientID, &zerochar);
+}
+
+
+void CGameContext::ConSetDDRTeam(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CGameControllerDDRace *pController = (CGameControllerDDRace *)pSelf->m_pController;
+
+	int Target = pResult->GetVictim();
+	int Team = pResult->GetInteger(0);
+
+	if(pController->m_Teams.m_Core.Team(Target) && pController->m_Teams.GetDDRaceState(pSelf->m_apPlayers[Target]) == DDRACE_STARTED)
+		pSelf->m_apPlayers[Target]->KillCharacter(WEAPON_SELF);
+
+	pController->m_Teams.SetForceCharacterTeam(pResult->GetVictim(), Team);
 }
 
 void CGameContext::ConFreezeHammer(IConsole::IResult *pResult, void *pUserData)

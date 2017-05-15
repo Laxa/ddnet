@@ -286,6 +286,7 @@ CClient::CClient() : m_DemoPlayer(&m_SnapshotDelta)
 	m_SnapCrcErrors = 0;
 	m_AutoScreenshotRecycle = false;
 	m_AutoStatScreenshotRecycle = false;
+	m_AutoCSVRecycle = false;
 	m_EditorActive = false;
 
 	m_AckGameTick[0] = -1;
@@ -2876,6 +2877,7 @@ void CClient::Run()
 		}
 
 		AutoScreenshot_Cleanup();
+		AutoCSV_Cleanup();
 
 		// check conditions
 		if(State() == IClient::STATE_QUITING)
@@ -2886,11 +2888,11 @@ void CClient::Run()
 #endif
 
 		// beNice
-		if(g_Config.m_ClCpuThrottle)
+		if(g_Config.m_DbgStress || (g_Config.m_ClCpuThrottleInactive && !m_pGraphics->WindowActive()))
+			thread_sleep(g_Config.m_ClCpuThrottleInactive);
+		else if(g_Config.m_ClCpuThrottle)
 			net_socket_read_wait(m_NetClient[0].m_Socket, g_Config.m_ClCpuThrottle * 1000);
 			//thread_sleep(g_Config.m_ClCpuThrottle);
-		else if(g_Config.m_DbgStress || (g_Config.m_ClCpuThrottleInactive && !m_pGraphics->WindowActive()))
-			thread_sleep(5);
 
 		if(g_Config.m_DbgHitch)
 		{
@@ -3019,6 +3021,26 @@ void CClient::AutoStatScreenshot_Cleanup()
 			AutoScreens.Init(Storage(), "screenshots/auto/stats", "autoscreen", ".png", g_Config.m_ClAutoStatboardScreenshotMax);
 		}
 		m_AutoStatScreenshotRecycle = false;
+	}
+}
+
+void CClient::AutoCSV_Start()
+{
+	if (g_Config.m_ClAutoCSV)
+		m_AutoCSVRecycle = true;
+}
+
+void CClient::AutoCSV_Cleanup()
+{
+	if (m_AutoCSVRecycle)
+	{
+		if (g_Config.m_ClAutoCSVMax)
+		{
+			// clean up auto csvs
+			CFileCollection AutoRecord;
+			AutoRecord.Init(Storage(), "record/csv", "autorecord", ".csv", g_Config.m_ClAutoCSVMax);
+		}
+		m_AutoCSVRecycle = false;
 	}
 }
 
