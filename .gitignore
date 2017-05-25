@@ -27,6 +27,7 @@ update.sh
 /serverlaunch_*
 /tileset_border*
 /twping*
+/uuid*
 /versionsrv*
 
 Debug
