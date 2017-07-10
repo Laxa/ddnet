@@ -178,12 +178,13 @@ if family == "windows" then
 	table.insert(server_sql_depends, CopyToDirectory(".", "other/mysql/vc2005libs/mysqlcppconn.dll"))
 	table.insert(server_sql_depends, CopyToDirectory(".", "other/mysql/vc2005libs/libmysql.dll"))
 
+	client_link_other = {ResCompile("other/manifest/DDNet.rc")}
 	if config.compiler.driver == "cl" then
-		client_link_other = {ResCompile("other/icons/teeworlds_cl.rc")}
-		server_link_other = {ResCompile("other/icons/teeworlds_srv_cl.rc")}
+		client_link_other = {ResCompile("other/icons/DDNet_cl.rc")}
+		server_link_other = {ResCompile("other/icons/DDNet_srv_cl.rc")}
 	elseif config.compiler.driver == "gcc" then
-		client_link_other = {ResCompile("other/icons/teeworlds_gcc.rc")}
-		server_link_other = {ResCompile("other/icons/teeworlds_srv_gcc.rc")}
+		client_link_other = {ResCompile("other/icons/DDNet_gcc.rc")}
+		server_link_other = {ResCompile("other/icons/DDNet_srv_gcc.rc")}
 	end
 end
 
@@ -225,7 +226,7 @@ function build(settings)
 		settings.cc.flags:Add("/wd4244")
 		settings.cc.flags:Add("/EHsc")
 	else
-		settings.cc.flags:Add("-Wall")
+		settings.cc.flags:Add("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
 		if family == "windows" then
 			if config.compiler.driver == "gcc" then
 				settings.link.flags:Add("-static-libgcc")
@@ -278,6 +279,12 @@ function build(settings)
 		settings.link.libs:Add("advapi32")
 	end
 
+	external_settings = settings:Copy()
+	if config.compiler.driver == "cl" then
+		external_settings.cc.flags:Add("/w")
+	else
+		external_settings.cc.flags:Add("-w")
+	end
 	-- compile zlib if needed
 	if config.zlib.value == 1 then
 		settings.link.libs:Add("z")
@@ -286,17 +293,23 @@ function build(settings)
 		end
 		zlib = {}
 	else
-		zlib = Compile(settings, Collect("src/engine/external/zlib/*.c"))
+		zlib = Compile(external_settings, Collect("src/engine/external/zlib/*.c"))
 		settings.cc.includes:Add("src/engine/external/zlib")
 	end
 
+	external_settings = settings:Copy()
+	if config.compiler.driver == "cl" then
+		external_settings.cc.flags:Add("/w")
+	else
+		external_settings.cc.flags:Add("-w")
+	end
 	-- build the small libraries
-	wavpack = Compile(settings, Collect("src/engine/external/wavpack/*.c"))
-	pnglite = Compile(settings, Collect("src/engine/external/pnglite/*.c"))
-	jsonparser = Compile(settings, Collect("src/engine/external/json-parser/*.c"))
-	md5 = Compile(settings, "src/engine/external/md5/md5.c")
+	wavpack = Compile(external_settings, Collect("src/engine/external/wavpack/*.c"))
+	pnglite = Compile(external_settings, Collect("src/engine/external/pnglite/*.c"))
+	jsonparser = Compile(external_settings, Collect("src/engine/external/json-parser/*.c"))
+	md5 = Compile(external_settings, "src/engine/external/md5/md5.c")
 	if config.websockets.value then
-		libwebsockets = Compile(settings, Collect("src/engine/external/libwebsockets/*.c"))
+		libwebsockets = Compile(external_settings, Collect("src/engine/external/libwebsockets/*.c"))
 	end
 
 	-- build game components

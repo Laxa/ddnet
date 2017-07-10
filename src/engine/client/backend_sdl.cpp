@@ -621,11 +621,6 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 #endif
 	}
 
-	if(Flags&IGraphicsBackend::INITFLAG_HIGHDPI)
-		SdlFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
-	else
-		SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
-
 	// set gl attributes
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	if(FsaaSamples)
@@ -641,6 +636,8 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 
 	if(g_Config.m_InpMouseOld)
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+
+	SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
 
 	m_pWindow = SDL_CreateWindow(
 		pName,
