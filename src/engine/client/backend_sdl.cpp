@@ -594,13 +594,29 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 	*pDesktopHeight = DisplayMode.h;
 
 	// use desktop resolution as default resolution
-#ifndef __ANDROID__
+#ifdef __ANDROID__
+	*pWidth = *pDesktopWidth;
+	*pHeight = *pDesktopHeight;
+#elif defined(CONF_FAMILY_WINDOWS)
 	if(*pWidth == 0 || *pHeight == 0)
-#endif
 	{
 		*pWidth = *pDesktopWidth;
 		*pHeight = *pDesktopHeight;
 	}
+	else
+	{
+		float dpi;
+		SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
+		*pWidth = *pWidth * 96 / (int)dpi;
+		*pHeight = *pHeight * 96 / (int)dpi;
+	}
+#else
+	if(*pWidth == 0 || *pHeight == 0)
+	{
+		*pWidth = *pDesktopWidth;
+		*pHeight = *pDesktopHeight;
+	}
+#endif
 
 	// set flags
 	int SdlFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
@@ -636,8 +652,6 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 
 	if(g_Config.m_InpMouseOld)
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
-
-	SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
 
 	m_pWindow = SDL_CreateWindow(
 		pName,
