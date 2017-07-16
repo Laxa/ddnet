@@ -299,6 +299,7 @@ CClient::CClient() : m_DemoPlayer(&m_SnapshotDelta)
 	m_RconAuthed[0] = 0;
 	m_RconAuthed[1] = 0;
 	m_RconPassword[0] = '\0';
+	m_Password[0] = '\0';
 
 	// version-checking
 	m_aVersionStr[0] = '0';
@@ -403,7 +404,7 @@ void CClient::SendInfo()
 {
 	CMsgPacker Msg(NETMSG_INFO);
 	Msg.AddString(GameClient()->NetVersion(), 128);
-	Msg.AddString(g_Config.m_Password, 128);
+	Msg.AddString(m_Password, 128);
 	SendMsgEx(&Msg, MSGFLAG_VITAL|MSGFLAG_FLUSH);
 }
 
@@ -515,7 +516,11 @@ void CClient::SendInput()
 			m_CurrentInput[i] %= 200;
 
 			SendMsgExY(&Msg, MSGFLAG_FLUSH, true, i);
-			Force = true;
+			// ugly workaround for dummy. we need to send input with dummy to prevent
+			// prediction time resets. but if we do it too often, then it's
+			// impossible to use grenade with frozen dummy that gets hammered...
+			if(g_Config.m_ClDummyCopyMoves || m_CurrentInput[i] % 2)
+				Force = true;
 		}
 	}
 }
@@ -664,7 +669,7 @@ void CClient::GenerateTimeoutCodes()
 	}
 }
 
-void CClient::Connect(const char *pAddress)
+void CClient::Connect(const char *pAddress, const char *pPassword)
 {
 	char aBuf[512];
 	int Port = 8303;
@@ -684,6 +689,11 @@ void CClient::Connect(const char *pAddress)
 		m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "client", aBufMsg);
 		net_host_lookup("localhost", &m_ServerAddress, m_NetClient[0].NetType());
 	}
+
+	if(!pPassword)
+		m_Password[0] = 0;
+	else
+		str_copy(m_Password, pPassword, sizeof(m_Password));
 
 	m_RconAuthed[0] = 0;
 	if(m_ServerAddress.port == 0)
@@ -2791,7 +2801,7 @@ void CClient::Run()
 			// send client info
 			CMsgPacker MsgInfo(NETMSG_INFO);
 			MsgInfo.AddString(GameClient()->NetVersion(), 128);
-			MsgInfo.AddString(g_Config.m_Password, 128);
+			MsgInfo.AddString(m_Password, 128);
 			SendMsgExY(&MsgInfo, MSGFLAG_VITAL|MSGFLAG_FLUSH, true, 1);
 
 			// update netclient

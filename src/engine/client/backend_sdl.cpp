@@ -597,6 +597,7 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 #ifdef __ANDROID__
 	*pWidth = *pDesktopWidth;
 	*pHeight = *pDesktopHeight;
+/*
 #elif defined(CONF_FAMILY_WINDOWS)
 	if(*pWidth == 0 || *pHeight == 0)
 	{
@@ -605,11 +606,15 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 	}
 	else
 	{
-		float dpi;
+		float dpi = -1;
 		SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
-		*pWidth = *pWidth * 96 / (int)dpi;
-		*pHeight = *pHeight * 96 / (int)dpi;
+		if(dpi > 0)
+		{
+			*pWidth = *pWidth * 96 / dpi;
+			*pHeight = *pHeight * 96 / dpi;
+		}
 	}
+*/
 #else
 	if(*pWidth == 0 || *pHeight == 0)
 	{
@@ -619,7 +624,7 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 #endif
 
 	// set flags
-	int SdlFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
+	int SdlFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI;
 #if defined(SDL_VIDEO_DRIVER_X11)
 	if(Flags&IGraphicsBackend::INITFLAG_RESIZABLE)
 		SdlFlags |= SDL_WINDOW_RESIZABLE;

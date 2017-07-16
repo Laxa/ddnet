@@ -17,8 +17,6 @@ Import("other/sdl/sdl.lua")
 Import("other/freetype/freetype.lua")
 Import("other/curl/curl.lua")
 Import("other/opus/opusfile.lua")
-Import("other/opus/opus.lua")
-Import("other/opus/ogg.lua")
 Import("other/mysql/mysql.lua")
 
 --- Setup Config -------
@@ -32,8 +30,6 @@ config:Add(SDL.OptFind("sdl", true))
 config:Add(FreeType.OptFind("freetype", true))
 config:Add(Curl.OptFind("curl", true))
 config:Add(Opusfile.OptFind("opusfile", true))
-config:Add(Opus.OptFind("opus", true))
-config:Add(Ogg.OptFind("ogg", true))
 config:Add(Mysql.OptFind("mysql", false))
 config:Add(OptString("websockets", false))
 config:Finalize("config.lua")
@@ -178,7 +174,6 @@ if family == "windows" then
 	table.insert(server_sql_depends, CopyToDirectory(".", "other/mysql/vc2005libs/mysqlcppconn.dll"))
 	table.insert(server_sql_depends, CopyToDirectory(".", "other/mysql/vc2005libs/libmysql.dll"))
 
-	client_link_other = {ResCompile("other/manifest/DDNet.rc")}
 	if config.compiler.driver == "cl" then
 		client_link_other = {ResCompile("other/icons/DDNet_cl.rc")}
 		server_link_other = {ResCompile("other/icons/DDNet_srv_cl.rc")}
@@ -353,8 +348,6 @@ function build(settings)
 	config.freetype:Apply(client_settings)
 	config.curl:Apply(client_settings)
 	config.opusfile:Apply(client_settings)
-	config.opus:Apply(client_settings)
-	config.ogg:Apply(client_settings)
 
 	if family == "unix" and (platform == "macosx" or platform == "linux") then
 		engine_settings.link.libs:Add("dl")
