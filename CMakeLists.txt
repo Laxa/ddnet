@@ -3,9 +3,29 @@ project(DDNet)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(TARGET_BITS "64")
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set(TARGET_BITS "32")
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  set(TARGET_OS "windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(TARGET_OS "linux")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set(TARGET_OS "mac")
+endif()
+
+set(PREFER_BUNDLED_LIBS_DEFAULT OFF)
+if(TARGET_OS STREQUAL "windows")
+  set(PREFER_BUNDLED_LIBS_DEFAULT ON)
+endif()
+
 option(WEBSOCKETS "Enable websockets support" OFF)
 option(MYSQL "Enable mysql support" OFF)
 option(CLIENT "Compile client" ON)
+option(PREFER_BUNDLED_LIBS "Prefer bundled libraries over system libraries" ${PREFER_BUNDLED_LIBS_DEFAULT})
 
 # Set the default build type to Release
 if(NOT(CMAKE_BUILD_TYPE))
@@ -19,25 +39,22 @@ set(CLIENT_EXECUTABLE DDNet CACHE STRING "Name of the build client executable")
 # DEPENDENCIES
 ########################################################################
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set(TARGET_BITS 32)
-elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(TARGET_BITS 64)
-endif()
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  set(TARGET_OS "windows")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  set(TARGET_OS "linux")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  set(TARGET_OS "mac")
-endif()
-
 function(set_extra_dirs VARIABLE NAME)
-  if(TARGET_BITS AND TARGET_OS)
-    set("EXTRA_${VARIABLE}_LIBDIR" "other/${NAME}/${TARGET_OS}/lib${TARGET_BITS}" PARENT_SCOPE)
+  set("PATHS_${VARIABLE}_LIBDIR" PARENT_SCOPE)
+  set("HINTS_${VARIABLE}_LIBDIR" PARENT_SCOPE)
+  set("PATHS_${VARIABLE}_INCLUDEDIR" PARENT_SCOPE)
+  set("HINTS_${VARIABLE}_INCLUDEDIR" PARENT_SCOPE)
+  if(PREFER_BUNDLED_LIBS)
+    set(TYPE HINTS)
+  else()
+    set(TYPE PATHS)
   endif()
-  set("EXTRA_${VARIABLE}_INCLUDEDIR" "other/${NAME}/include" PARENT_SCOPE)
+  if(TARGET_BITS AND TARGET_OS)
+    set(DIR "ddnet-libs/${NAME}/${TARGET_OS}/lib${TARGET_BITS}")
+    set("${TYPE}_${VARIABLE}_LIBDIR" "${DIR}" PARENT_SCOPE)
+    set("EXTRA_${VARIABLE}_LIBDIR" "${DIR}" PARENT_SCOPE)
+  endif()
+  set("${TYPE}_${VARIABLE}_INCLUDEDIR" "ddnet-libs/${NAME}/include" PARENT_SCOPE)
 endfunction()
 
 # Check for PkgConfig once so all the other `find_package` calls can do it
@@ -56,11 +73,16 @@ find_package(Opusfile)
 find_package(PythonInterp)
 find_package(SDL2)
 find_package(Threads)
-find_package(ZLIB)
+if(NOT PREFER_BUNDLED_LIBS)
+  find_package(ZLIB)
+else()
+  set(ZLIB_FOUND NO)
+endif()
 
 message(STATUS "******** DDNet ********")
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Target OS: ${TARGET_OS} ${TARGET_BITS}bit")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 message(STATUS "Dependencies:")
 function(show_dependency_status NAME FOUND PATH)
@@ -79,7 +101,7 @@ endfunction()
 show_dependency_status("Curl" ${CURL_FOUND} "${CURL_LIBRARY}")
 show_dependency_status("Freetype" ${FREETYPE_FOUND} "${FREETYPE_LIBRARY}")
 if(MYSQL)
-  show_dependency_status("MySQL" ${MYSQL_FOUND} "")
+  show_dependency_status("MySQL" ${MYSQL_FOUND} "${MYSQL_LIBRARY}")
 endif()
 show_dependency_status("Ogg" ${OGG_FOUND} "${OGG_INCLUDEDIR}")
 show_dependency_status("Opus" ${OPUS_FOUND} "${OPUS_INCLUDEDIR}")
@@ -90,6 +112,10 @@ if(ZLIB_FOUND)
   message(STATUS " * Zlib found")
 else()
   message(STATUS " * Zlib not found (using bundled version)")
+endif()
+
+if(NOT(PYTHONINTERP_FOUND))
+  message(SEND_ERROR "You must install Python to compile DDNet")
 endif()
 
 if(MYSQL AND NOT(MYSQL_FOUND))
@@ -116,9 +142,23 @@ if(CLIENT AND NOT(SDL2_FOUND))
 endif()
 
 if(TARGET_OS STREQUAL "windows")
+  set(PLATFORM_CLIENT)
   set(PLATFORM_CLIENT_LIBS opengl32 glu32 winmm)
   set(PLATFORM_LIBS ws2_32) # Windows sockets
+elseif(TARGET_OS STREQUAL "mac")
+  find_library(CARBON Carbon)
+  find_library(COCOA Cocoa)
+  find_library(OPENGL OpenGL)
+  set(PLATFORM_CLIENT
+    src/osx/notification.h
+    src/osx/notification.mm
+    src/osxlaunch/client.h
+    src/osxlaunch/client.m
+  )
+  set(PLATFORM_CLIENT_LIBS ${COCOA} ${OPENGL})
+  set(PLATFORM_LIBS ${CARBON})
 else()
+  set(PLATFORM_CLIENT)
   set(PLATFORM_CLIENT_LIBS GL GLU X11)
   if(TARGET_OS STREQUAL "linux")
     set(PLATFORM_LIBS rt) # clock_gettime for glibc < 2.17
@@ -141,13 +181,82 @@ endif()
 set(TARGETS_OWN)
 set(TARGETS_DEP)
 
+set(TARGETS_LINK) # Targets with a linking stage.
+
+########################################################################
+# COMMON FUNCTIONS
+########################################################################
+
+function(set_glob VAR GLOBBING DIRECTORY) # ...
+  file(${GLOBBING} GLOB_RESULT "${DIRECTORY}/*.c" "${DIRECTORY}/*.cpp" "${DIRECTORY}/*.h")
+  list(SORT GLOB_RESULT)
+  set(FILES)
+  foreach(file ${ARGN})
+    list(APPEND FILES "${PROJECT_SOURCE_DIR}/${DIRECTORY}/${file}")
+  endforeach()
+
+  if(NOT FILES STREQUAL GLOB_RESULT)
+    message(AUTHOR_WARNING "${VAR} does not contain every file from directory ${DIRECTORY}")
+    set(LIST_BUT_NOT_GLOB)
+    if(POLICY CMP0057)
+      cmake_policy(SET CMP0057 NEW)
+      foreach(file ${FILES})
+        if(NOT file IN_LIST GLOB_RESULT)
+          list(APPEND LIST_BUT_NOT_GLOB ${file})
+        endif()
+      endforeach()
+      if(LIST_BUT_NOT_GLOB)
+        message(AUTHOR_WARNING "Entries only present in ${VAR}: ${LIST_BUT_NOT_GLOB}")
+      endif()
+      set(GLOB_BUT_NOT_LIST)
+      foreach(file ${GLOB_RESULT})
+        if(NOT file IN_LIST FILES)
+          list(APPEND GLOB_BUT_NOT_LIST ${file})
+        endif()
+      endforeach()
+      if(GLOB_BUT_NOT_LIST)
+        message(AUTHOR_WARNING "Entries only present in ${DIRECTORY}: ${GLOB_BUT_NOT_LIST}")
+      endif()
+    endif()
+  endif()
+
+  set(${VAR} ${FILES} PARENT_SCOPE)
+endfunction()
+
 ########################################################################
 # DEPENDENCY COMPILATION
 ########################################################################
 
 if(NOT(ZLIB_FOUND))
   set(ZLIB_LIBRARIES)
-  file(GLOB ZLIB_SRC "src/engine/external/zlib/*.c" "src/engine/external/zlib/*.h")
+  set_glob(ZLIB_SRC GLOB src/engine/external/zlib
+    adler32.c
+    compress.c
+    crc32.c
+    crc32.h
+    deflate.c
+    deflate.h
+    gzclose.c
+    gzguts.h
+    gzlib.c
+    gzread.c
+    gzwrite.c
+    infback.c
+    inffast.c
+    inffast.h
+    inffixed.h
+    inflate.c
+    inflate.h
+    inftrees.c
+    inftrees.h
+    trees.c
+    trees.h
+    uncompr.c
+    zconf.h
+    zlib.h
+    zutil.c
+    zutil.h
+  )
   add_library(zlib EXCLUDE_FROM_ALL OBJECT ${ZLIB_SRC})
 
   list(APPEND TARGETS_DEP zlib)
@@ -158,7 +267,7 @@ else()
   set(DEP_ZLIB)
 endif()
 
-file(GLOB DEP_PNG_SRC "src/engine/external/pnglite/*.c" "src/engine/external/pnglite/*.h")
+set_glob(DEP_PNG_SRC GLOB src/engine/external/pnglite pnglite.c pnglite.h)
 add_library(png OBJECT EXCLUDE_FROM_ALL ${DEP_PNG_SRC})
 target_include_directories(png PRIVATE ${ZLIB_INCLUDEDIR})
 
@@ -167,8 +276,16 @@ list(APPEND TARGETS_DEP png)
 
 if(CLIENT)
   # Static dependencies
-  file(GLOB DEP_JSON_SRC "src/engine/external/json-parser/*.c" "src/engine/external/json-parser/*.h")
-  file(GLOB DEP_WAV_SRC "src/engine/external/wavpack/*.c" "src/engine/external/wavpack/*.h")
+  set_glob(DEP_JSON_SRC GLOB src/engine/external/json-parser json.c json.h)
+  set_glob(DEP_WAV_SRC GLOB src/engine/external/wavpack
+    bits.c
+    float.c
+    metadata.c
+    unpack.c
+    wavpack.h
+    words.c
+    wputils.c
+  )
   add_library(json EXCLUDE_FROM_ALL OBJECT ${DEP_JSON_SRC})
   add_library(wav EXCLUDE_FROM_ALL OBJECT ${DEP_WAV_SRC})
 
@@ -231,20 +348,143 @@ generate_source("src/game/generated/server_data.h" "server_content_header")
 ########################################################################
 
 # Sources
-file(GLOB_RECURSE BASE "src/base/*.c" "src/base/*.cpp" "src/base/*.h")
-file(GLOB_RECURSE ENGINE_SHARED "src/engine/shared/*.cpp" "src/engine/shared/*.h")
-set(ENGINE_GENERATED_SHARED "src/game/generated/protocol.cpp" "src/game/generated/protocol.h")
-file(GLOB GAME_SHARED "src/game/*.cpp" "src/game/*.h")
-set(GAME_GENERATED_SHARED "src/game/generated/nethash.cpp")
+set_glob(BASE GLOB_RECURSE src/base
+  color.h
+  confusables.c
+  confusables_data.h
+  detect.h
+  math.h
+  system.c
+  system.h
+  tl/algorithm.h
+  tl/allocator.h
+  tl/array.h
+  tl/base.h
+  tl/range.h
+  tl/sorted_array.h
+  tl/string.h
+  tl/threading.h
+  vmath.h
+)
+set_glob(ENGINE_SHARED GLOB src/engine/shared
+  compression.cpp
+  compression.h
+  config.cpp
+  config.h
+  config_variables.h
+  console.cpp
+  console.h
+  datafile.cpp
+  datafile.h
+  demo.cpp
+  demo.h
+  econ.cpp
+  econ.h
+  engine.cpp
+  fifo.cpp
+  fifo.h
+  filecollection.cpp
+  filecollection.h
+  global_uuid_manager.cpp
+  huffman.cpp
+  huffman.h
+  jobs.cpp
+  jobs.h
+  kernel.cpp
+  linereader.cpp
+  linereader.h
+  map.cpp
+  mapchecker.cpp
+  mapchecker.h
+  masterserver.cpp
+  memheap.cpp
+  memheap.h
+  message.h
+  netban.cpp
+  netban.h
+  network.cpp
+  network.h
+  network_client.cpp
+  network_conn.cpp
+  network_console.cpp
+  network_console_conn.cpp
+  network_server.cpp
+  packer.cpp
+  packer.h
+  protocol.h
+  protocol_ex.cpp
+  protocol_ex.h
+  protocol_ex_msgs.h
+  ringbuffer.cpp
+  ringbuffer.h
+  serverbrowser.cpp
+  snapshot.cpp
+  snapshot.h
+  storage.cpp
+  storage.h
+  uuid_manager.cpp
+  uuid_manager.h
+  websockets.cpp
+  websockets.h
+)
+set(ENGINE_GENERATED_SHARED src/game/generated/protocol.cpp src/game/generated/protocol.h)
+set_glob(GAME_SHARED GLOB src/game
+  collision.cpp
+  collision.h
+  ddracecommands.h
+  extrainfo.cpp
+  extrainfo.h
+  gamecore.cpp
+  gamecore.h
+  layers.cpp
+  layers.h
+  localization.cpp
+  localization.h
+  mapitems.cpp
+  mapitems.h
+  teamscore.cpp
+  teamscore.h
+  tuning.h
+  variables.h
+  version.h
+  voting.h
+)
+set(GAME_GENERATED_SHARED src/game/generated/nethash.cpp)
 
 # Static dependencies
-file(GLOB DEP_MD5_SRC "src/engine/external/md5/*.c" "src/engine/external/md5/*.h")
+set_glob(DEP_MD5_SRC GLOB src/engine/external/md5 md5.c md5.h)
 add_library(md5 EXCLUDE_FROM_ALL OBJECT ${DEP_MD5_SRC})
 set(DEP_MD5 $<TARGET_OBJECTS:md5>)
 list(APPEND TARGETS_DEP md5)
 
 if(WEBSOCKETS)
-  file(GLOB DEP_WEBSOCKETS_SRC "src/engine/external/libwebsockets/*.c" "src/engine/external/libwebsockets/*.h")
+  set_glob(DEP_WEBSOCKETS_SRC GLOB src/engine/external/libwebsockets
+    alloc.c
+    base64-decode.c
+    config.h
+    context.c
+    extension-deflate-frame.c
+    extension-deflate-frame.h
+    extension-deflate-stream.c
+    extension-deflate-stream.h
+    extension.c
+    getifaddrs.h
+    handshake.c
+    huftable.h
+    lextable-strings.h
+    lextable.h
+    libwebsockets.c
+    libwebsockets.h
+    lws-plat-unix.c
+    output.c
+    parsers.c
+    pollfd.c
+    private-libwebsockets.h
+    server-handshake.c
+    server.c
+    service.c
+    sha-1.c
+  )
   add_library(websockets EXCLUDE_FROM_ALL OBJECT ${DEP_WEBSOCKETS_SRC})
   list(APPEND TARGETS_DEP websockets)
   set(DEP_WEBSOCKETS $<TARGET_OBJECTS:websockets>)
@@ -269,11 +509,127 @@ list(APPEND TARGETS_OWN engine-shared game-shared)
 
 if(CLIENT)
   # Sources
-  file(GLOB_RECURSE ENGINE_CLIENT "src/engine/client/*.cpp" "src/engine/client/*.h")
-  file(GLOB_RECURSE GAME_CLIENT "src/game/client/*.cpp" "src/game/client/*.h")
-  file(GLOB_RECURSE GAME_EDITOR "src/game/editor/*.cpp" "src/game/editor/*.h")
-  set(GAME_GENERATED_CLIENT "src/game/generated/client_data.cpp" "src/game/generated/client_data.h")
-  set(CLIENT_SRC ${ENGINE_CLIENT} ${GAME_CLIENT} ${GAME_EDITOR} ${GAME_GENERATED_CLIENT})
+  set_glob(ENGINE_CLIENT GLOB src/engine/client
+    backend_sdl.cpp
+    backend_sdl.h
+    client.cpp
+    client.h
+    fetcher.cpp
+    fetcher.h
+    friends.cpp
+    friends.h
+    graphics_threaded.cpp
+    graphics_threaded.h
+    input.cpp
+    input.h
+    keynames.h
+    serverbrowser.cpp
+    serverbrowser.h
+    sound.cpp
+    sound.h
+    text.cpp
+    updater.cpp
+    updater.h
+  )
+  set_glob(GAME_CLIENT GLOB_RECURSE src/game/client
+    animstate.cpp
+    animstate.h
+    component.h
+    components/background.cpp
+    components/background.h
+    components/binds.cpp
+    components/binds.h
+    components/broadcast.cpp
+    components/broadcast.h
+    components/camera.cpp
+    components/camera.h
+    components/chat.cpp
+    components/chat.h
+    components/console.cpp
+    components/console.h
+    components/controls.cpp
+    components/controls.h
+    components/countryflags.cpp
+    components/countryflags.h
+    components/damageind.cpp
+    components/damageind.h
+    components/debughud.cpp
+    components/debughud.h
+    components/effects.cpp
+    components/effects.h
+    components/emoticon.cpp
+    components/emoticon.h
+    components/flow.cpp
+    components/flow.h
+    components/ghost.cpp
+    components/ghost.h
+    components/hud.cpp
+    components/hud.h
+    components/items.cpp
+    components/items.h
+    components/killmessages.cpp
+    components/killmessages.h
+    components/mapimages.cpp
+    components/mapimages.h
+    components/maplayers.cpp
+    components/maplayers.h
+    components/mapsounds.cpp
+    components/mapsounds.h
+    components/menus.cpp
+    components/menus.h
+    components/menus_browser.cpp
+    components/menus_demo.cpp
+    components/menus_ingame.cpp
+    components/menus_settings.cpp
+    components/motd.cpp
+    components/motd.h
+    components/nameplates.cpp
+    components/nameplates.h
+    components/particles.cpp
+    components/particles.h
+    components/players.cpp
+    components/players.h
+    components/race_demo.cpp
+    components/race_demo.h
+    components/scoreboard.cpp
+    components/scoreboard.h
+    components/skins.cpp
+    components/skins.h
+    components/sounds.cpp
+    components/sounds.h
+    components/spectator.cpp
+    components/spectator.h
+    components/statboard.cpp
+    components/statboard.h
+    components/voting.cpp
+    components/voting.h
+    gameclient.cpp
+    gameclient.h
+    lineinput.cpp
+    lineinput.h
+    render.cpp
+    render.h
+    render_map.cpp
+    ui.cpp
+    ui.h
+  )
+  set_glob(GAME_EDITOR GLOB src/game/editor
+    auto_map.cpp
+    auto_map.h
+    editor.cpp
+    editor.h
+    io.cpp
+    layer_game.cpp
+    layer_quads.cpp
+    layer_sounds.cpp
+    layer_tiles.cpp
+    popups.cpp
+  )
+  set(GAME_GENERATED_CLIENT
+    src/game/generated/client_data.cpp
+    src/game/generated/client_data.h
+  )
+  set(CLIENT_SRC ${ENGINE_CLIENT} ${PLATFORM_CLIENT} ${GAME_CLIENT} ${GAME_EDITOR} ${GAME_GENERATED_CLIENT})
 
   set(DEPS_CLIENT ${DEPS} ${DEP_JSON} ${DEP_PNG} ${DEP_WAV})
 
@@ -293,7 +649,11 @@ if(CLIENT)
   )
 
   if(TARGET_OS STREQUAL "windows")
-    set(CLIENT_ICON "other/icons/DDNet.rc")
+    if(MSVC)
+      set(CLIENT_ICON "other/icons/DDNet_cl.rc")
+    else()
+      set(CLIENT_ICON "other/icons/DDNet_gcc.rc")
+    endif()
   else()
     set(CLIENT_ICON)
   endif()
@@ -318,6 +678,7 @@ if(CLIENT)
     ${SDL2_INCLUDE_DIRS}
   )
   list(APPEND TARGETS_OWN ${TARGET_CLIENT})
+  list(APPEND TARGETS_LINK ${TARGET_CLIENT})
 endif()
 
 
@@ -326,12 +687,80 @@ endif()
 ########################################################################
 
 # Sources
-file(GLOB_RECURSE ENGINE_SERVER "src/engine/server/*.cpp" "src/engine/server/*.h")
-file(GLOB_RECURSE GAME_SERVER "src/game/server/*.cpp" "src/game/server/*.h")
-set(GAME_GENERATED_SERVER "src/game/generated/server_data.cpp" "src/game/generated/server_data.h")
+set_glob(ENGINE_SERVER GLOB src/engine/server
+  authmanager.cpp
+  authmanager.h
+  register.cpp
+  register.h
+  server.cpp
+  server.h
+  sql_connector.cpp
+  sql_connector.h
+  sql_server.cpp
+  sql_server.h
+  sql_string_helpers.cpp
+  sql_string_helpers.h
+)
+set_glob(GAME_SERVER GLOB_RECURSE src/game/server
+  ddracechat.cpp
+  ddracechat.h
+  ddracecommands.cpp
+  entities/character.cpp
+  entities/character.h
+  entities/door.cpp
+  entities/door.h
+  entities/dragger.cpp
+  entities/dragger.h
+  entities/flag.cpp
+  entities/flag.h
+  entities/gun.cpp
+  entities/gun.h
+  entities/laser.cpp
+  entities/laser.h
+  entities/light.cpp
+  entities/light.h
+  entities/pickup.cpp
+  entities/pickup.h
+  entities/plasma.cpp
+  entities/plasma.h
+  entities/projectile.cpp
+  entities/projectile.h
+  entity.cpp
+  entity.h
+  eventhandler.cpp
+  eventhandler.h
+  gamecontext.cpp
+  gamecontext.h
+  gamecontroller.cpp
+  gamecontroller.h
+  gamemodes/DDRace.cpp
+  gamemodes/DDRace.h
+  gamemodes/gamemode.h
+  gameworld.cpp
+  gameworld.h
+  player.cpp
+  player.h
+  save.cpp
+  save.h
+  score.h
+  score/file_score.cpp
+  score/file_score.h
+  score/sql_score.cpp
+  score/sql_score.h
+  teams.cpp
+  teams.h
+)
+set(GAME_GENERATED_SERVER
+  "src/game/generated/server_data.cpp"
+  "src/game/generated/server_data.h"
+)
 set(SERVER_SRC ${ENGINE_SERVER} ${GAME_SERVER} ${GAME_GENERATED_SERVER})
 if(TARGET_OS STREQUAL "windows")
-  set(SERVER_ICON "other/icons/DDNet-Server.rc")
+  if(MSVC)
+    set(CLIENT_ICON "other/icons/DDNet-Server_cl.rc")
+  else()
+    set(CLIENT_ICON "other/icons/DDNet-Server_gcc.rc")
+  endif()
 else()
   set(SERVER_ICON)
 endif()
@@ -350,20 +779,15 @@ add_executable(${TARGET_SERVER}
 )
 target_link_libraries(${TARGET_SERVER} ${LIBS_SERVER})
 list(APPEND TARGETS_OWN ${TARGET_SERVER})
-
-if(MYSQL)
-  target_compile_definitions(${TARGET_SERVER} PRIVATE -DCONF_SQL)
-  target_include_directories(${TARGET_SERVER} PRIVATE ${MYSQL_INCLUDE_DIRS})
-endif()
-
+list(APPEND TARGETS_LINK ${TARGET_SERVER})
 
 ########################################################################
 # VARIOUS TARGETS
 ########################################################################
 
-file(GLOB_RECURSE MASTERSRV_SRC "src/mastersrv/*.cpp" "src/mastersrv/*.h")
-file(GLOB_RECURSE VERSIONSRV_SRC  "src/versionsrv/*.cpp" "src/versionsrv/*.h")
-file(GLOB_RECURSE TWPING_SRC "src/twping/*.cpp" "src/twping/*.h")
+set_glob(MASTERSRV_SRC GLOB src/mastersrv mastersrv.cpp mastersrv.h)
+set_glob(VERSIONSRV_SRC GLOB src/versionsrv mapversions.h versionsrv.cpp versionsrv.h)
+set_glob(TWPING_SRC GLOB src/twping twping.cpp)
 
 set(TARGET_MASTERSRV mastersrv)
 set(TARGET_VERSIONSRV versionsrv)
@@ -381,29 +805,53 @@ target_link_libraries(${TARGET_VERSIONSRV} ${LIBS})
 target_link_libraries(${TARGET_TWPING} ${LIBS})
 
 list(APPEND TARGETS_OWN ${TARGET_MASTERSRV} ${TARGET_TWPING} ${TARGET_VERSIONSRV})
+list(APPEND TARGETS_LINK ${TARGET_MASTERSRV} ${TARGET_TWPING} ${TARGET_VERSIONSRV})
 
 set(TARGETS_TOOLS)
-file(GLOB TOOLS RELATIVE "${PROJECT_SOURCE_DIR}/src/tools/" "src/tools/*.cpp")
-foreach(T ${TOOLS})
-  string(REGEX REPLACE "\\.cpp$" "" TOOL "${T}")
-  set(EXTRA_TOOL_SRC)
-  if(TOOL MATCHES "^(tileset_|dilate|map_extract$)")
-    list(APPEND EXTRA_TOOL_SRC ${DEP_PNG})
+set_glob(TOOLS GLOB src/tools
+  config_common.h
+  config_retrieve.cpp
+  config_store.cpp
+  confusables.cpp
+  crapnet.cpp
+  dilate.cpp
+  dummy_map.cpp
+  fake_server.cpp
+  map_diff.cpp
+  map_extract.cpp
+  map_resave.cpp
+  map_version.cpp
+  packetgen.cpp
+  tileset_borderadd.cpp
+  tileset_borderfix.cpp
+  tileset_borderrem.cpp
+  tileset_borderset.cpp
+  uuid.cpp
+)
+foreach(ABS_T ${TOOLS})
+  file(RELATIVE_PATH T "${PROJECT_SOURCE_DIR}/src/tools/" ${ABS_T})
+  if(T MATCHES "\\.cpp$")
+    string(REGEX REPLACE "\\.cpp$" "" TOOL "${T}")
+    set(EXTRA_TOOL_SRC)
+    if(TOOL MATCHES "^(tileset_|dilate|map_extract$)")
+      list(APPEND EXTRA_TOOL_SRC ${DEP_PNG})
+    endif()
+    if(TOOL MATCHES "^config_")
+      list(APPEND EXTRA_TOOL_SRC "src/tools/config_common.h")
+    endif()
+    add_executable(${TOOL} EXCLUDE_FROM_ALL
+      ${DEPS}
+      src/tools/${TOOL}.cpp
+      ${EXTRA_TOOL_SRC}
+      $<TARGET_OBJECTS:engine-shared>
+    )
+    target_link_libraries(${TOOL} ${LIBS})
+    list(APPEND TARGETS_TOOLS ${TOOL})
   endif()
-  if(TOOL MATCHES "^config_")
-    list(APPEND EXTRA_TOOL_SRC "src/tools/config_common.h")
-  endif()
-  add_executable(${TOOL} EXCLUDE_FROM_ALL
-    ${DEPS}
-    src/tools/${TOOL}.cpp
-    ${EXTRA_TOOL_SRC}
-    $<TARGET_OBJECTS:engine-shared>
-  )
-  target_link_libraries(${TOOL} ${LIBS})
-  list(APPEND TARGETS_TOOLS ${TOOL})
 endforeach()
 
 list(APPEND TARGETS_OWN ${TARGETS_TOOLS})
+list(APPEND TARGETS_LINK ${TARGETS_TOOLS})
 
 add_custom_target(tools DEPENDS ${TARGETS_TOOLS})
 add_custom_target(everything DEPENDS ${TARGETS_OWN})
@@ -444,6 +892,27 @@ foreach(target ${TARGETS})
       target_compile_definitions(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:_FORTIFY_SOURCE=2>) # Detect some buffer overflows.
     endif()
   endif()
+  if(TARGET_OS STREQUAL "mac")
+    target_compile_options(${target} PRIVATE -stdlib=libc++)
+    target_compile_options(${target} PRIVATE -mmacosx-version-min=10.7)
+  endif()
+endforeach()
+
+if(MSVC)
+  set_property(TARGET ${TARGET_CLIENT} APPEND PROPERTY LINK_FLAGS /SAFESEH:NO) # Disable SafeSEH because the shipped libraries don't support it.
+endif()
+
+foreach(target ${TARGETS_LINK})
+  if(TARGET_OS STREQUAL "mac")
+    target_link_libraries(${target} -stdlib=libc++)
+    target_link_libraries(${target} -mmacosx-version-min=10.7)
+  endif()
+  if(MINGW)
+    # Statically link the standard libraries with on MinGW so we don't have to
+    # ship them as DLLs.
+    target_link_libraries(${target} -static-libgcc)
+    target_link_libraries(${target} -static-libstdc++)
+  endif()
 endforeach()
 
 foreach(target ${TARGETS_OWN})
@@ -456,14 +925,20 @@ foreach(target ${TARGETS_OWN})
     if(CMAKE_VERSION VERSION_GREATER 3.3 OR CMAKE_VERSION VERSION_EQUAL 3.3)
       target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wdeclaration-after-statement>)
     endif()
-    #target_compile_options(${target} PRIVATE -Wextra)
-    #target_compile_options(${target} PRIVATE -Wformat=2) # Warn about format strings.
+    target_compile_options(${target} PRIVATE -Wextra)
+    target_compile_options(${target} PRIVATE -Wno-unused-parameter)
+    target_compile_options(${target} PRIVATE -Wno-missing-field-initializers)
+    target_compile_options(${target} PRIVATE -Wformat=2) # Warn about format strings.
   endif()
   target_include_directories(${target} PRIVATE src)
   target_compile_definitions(${target} PRIVATE $<$<CONFIG:Debug>:CONF_DEBUG>)
   target_include_directories(${target} PRIVATE ${ZLIB_INCLUDEDIR})
   if(WEBSOCKETS)
     target_compile_definitions(${target} PRIVATE CONF_WEBSOCKETS)
+  endif()
+  if(MYSQL)
+    target_compile_definitions(${target} PRIVATE CONF_SQL)
+    target_include_directories(${target} PRIVATE ${MYSQL_INCLUDE_DIRS})
   endif()
 endforeach()
 

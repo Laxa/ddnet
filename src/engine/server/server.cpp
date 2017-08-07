@@ -864,6 +864,13 @@ int CServer::DelClientCallback(int ClientID, const char *pReason, void *pUser)
 	return 0;
 }
 
+void CServer::SendRconType(int ClientID, bool UsernameReq)
+{
+	CMsgPacker Msg(NETMSG_RCONTYPE);
+	Msg.AddInt(UsernameReq);
+	SendMsgEx(&Msg, MSGFLAG_VITAL, ClientID, true);
+}
+
 void CServer::SendMap(int ClientID)
 {
 	CMsgPacker Msg(NETMSG_MAP_CHANGE);
@@ -1052,6 +1059,7 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 				}
 
 				m_aClients[ClientID].m_State = CClient::STATE_CONNECTING;
+				SendRconType(ClientID, m_AuthManager.NumNonDefaultKeys() > 0);
 				SendMap(ClientID);
 			}
 		}
@@ -2094,10 +2102,15 @@ void CServer::ConAuthAdd(IConsole::IResult *pResult, void *pUser)
 		return;
 	}
 
+	bool NeedUpdate = !pManager->NumNonDefaultKeys();
 	if(pManager->AddKey(pIdent, pPw, Level) < 0)
 		pThis->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "auth", "ident already exists");
 	else
+	{
+		if(NeedUpdate)
+			pThis->SendRconType(-1, true);
 		pThis->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "auth", "key added");
+	}
 }
 
 void CServer::ConAuthAddHashed(IConsole::IResult *pResult, void *pUser)
@@ -2131,10 +2144,16 @@ void CServer::ConAuthAddHashed(IConsole::IResult *pResult, void *pUser)
 		return;
 	}
 
+	bool NeedUpdate = !pManager->NumNonDefaultKeys();
+
 	if(pManager->AddKeyHash(pIdent, aHash, aSalt, Level) < 0)
 		pThis->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "auth", "ident already exists");
 	else
+	{
+		if(NeedUpdate)
+			pThis->SendRconType(-1, true);
 		pThis->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "auth", "key added");
+	}
 }
 
 void CServer::ConAuthUpdate(IConsole::IResult *pResult, void *pUser)
@@ -2161,6 +2180,7 @@ void CServer::ConAuthUpdate(IConsole::IResult *pResult, void *pUser)
 	}
 
 	pManager->UpdateKey(KeySlot, pPw, Level);
+	pThis->LogoutKey(KeySlot, "key update");
 
 	pThis->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "auth", "key updated");
 }
@@ -2224,6 +2244,10 @@ void CServer::ConAuthRemove(IConsole::IResult *pResult, void *pUser)
 	}
 
 	pThis->AuthRemoveKey(KeySlot);
+
+	if(!pManager->NumNonDefaultKeys())
+		pThis->SendRconType(-1, false);
+
 	pThis->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "auth", "key removed, all users logged out");
 }
 
@@ -2685,19 +2709,22 @@ int main(int argc, const char **argv) // ignore_convention
 	{
 		bool RegisterFail = false;
 
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pServer); // register as both
+		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pServer);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pEngine);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IEngineMap*>(pEngineMap)); // register as both
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IMap*>(pEngineMap));
+		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IMap*>(pEngineMap), false);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pGameServer);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pConsole);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pStorage);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pConfig);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IEngineMasterServer*>(pEngineMasterServer)); // register as both
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IMasterServer*>(pEngineMasterServer));
+		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IMasterServer*>(pEngineMasterServer), false);
 
 		if(RegisterFail)
+		{
+			delete pKernel;
 			return -1;
+		}
 	}
 
 	pEngine->Init();
@@ -2734,14 +2761,7 @@ int main(int argc, const char **argv) // ignore_convention
 	pServer->Run();
 
 	// free
-	delete pServer;
 	delete pKernel;
-	delete pEngineMap;
-	delete pGameServer;
-	delete pConsole;
-	delete pEngineMasterServer;
-	delete pStorage;
-	delete pConfig;
 	return 0;
 }
 
