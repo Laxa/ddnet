@@ -2708,8 +2708,7 @@ void CGameContext::OnMapChange(char *pNewMapName, int MapNameSize)
 		int TypeID;
 		int ItemID;
 		int *pData = (int *)Reader.GetItem(i, &TypeID, &ItemID);
-		// GetItemSize returns item size including header, remove that.
-		int Size = Reader.GetItemSize(i) - sizeof(int) * 2;
+		int Size = Reader.GetItemSize(i);
 		CMapItemInfoSettings MapInfo;
 		if(TypeID == MAPITEMTYPE_INFO && ItemID == 0)
 		{
@@ -2721,7 +2720,7 @@ void CGameContext::OnMapChange(char *pNewMapName, int MapNameSize)
 				{
 					SettingsIndex = pInfo->m_Settings;
 					char *pMapSettings = (char *)Reader.GetData(SettingsIndex);
-					int DataSize = Reader.GetUncompressedDataSize(SettingsIndex);
+					int DataSize = Reader.GetDataSize(SettingsIndex);
 					if(DataSize == TotalLength && mem_comp(pSettings, pMapSettings, DataSize) == 0)
 					{
 						// Configs coincide, no need to update map.
@@ -2768,7 +2767,7 @@ void CGameContext::OnMapChange(char *pNewMapName, int MapNameSize)
 			continue;
 		}
 		unsigned char *pData = (unsigned char *)Reader.GetData(i);
-		int Size = Reader.GetUncompressedDataSize(i);
+		int Size = Reader.GetDataSize(i);
 		Writer.AddData(Size, pData);
 		Reader.UnloadData(i);
 	}
@@ -2804,7 +2803,7 @@ void CGameContext::LoadMapSettings()
 	{
 		int ItemID;
 		CMapItemInfoSettings *pItem = (CMapItemInfoSettings *)pMap->GetItem(i, 0, &ItemID);
-		int ItemSize = pMap->GetItemSize(i) - 8;
+		int ItemSize = pMap->GetItemSize(i);
 		if(!pItem || ItemID != 0)
 			continue;
 
@@ -2813,7 +2812,7 @@ void CGameContext::LoadMapSettings()
 		if(!(pItem->m_Settings > -1))
 			break;
 
-		int Size = pMap->GetUncompressedDataSize(pItem->m_Settings);
+		int Size = pMap->GetDataSize(pItem->m_Settings);
 		char *pSettings = (char *)pMap->GetData(pItem->m_Settings);
 		char *pNext = pSettings;
 		while(pNext < pSettings + Size)
