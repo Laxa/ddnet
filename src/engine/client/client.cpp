@@ -2274,6 +2274,7 @@ void CClient::ResetDDNetRanks()
 void CClient::FinishDDNetRanks()
 {
 	ResetDDNetRanks();
+	m_pStorage->RenameFile("ddnet-ranks.json.tmp", "ddnet-ranks.json", IStorage::TYPE_SAVE);
 	m_ServerBrowser.LoadDDNetRanks();
 }
 
@@ -2625,7 +2626,7 @@ void CClient::VersionUpdate()
 {
 	if(m_VersionInfo.m_State == CVersionInfo::STATE_INIT)
 	{
-			Engine()->HostLookup(&m_VersionInfo.m_VersionServeraddr, g_Config.m_ClDDNetVersionServer, m_NetClient[0].NetType());
+			Engine()->HostLookup(&m_VersionInfo.m_VersionServeraddr, "version.ddnet.tw", m_NetClient[0].NetType());
 			m_VersionInfo.m_State = CVersionInfo::STATE_START;
 	}
 	else if(m_VersionInfo.m_State == CVersionInfo::STATE_START)
@@ -3628,15 +3629,6 @@ int main(int argc, const char **argv) // ignore_convention
 	pEngineMasterServer->Init();
 	pEngineMasterServer->Load();
 
-	// init graphics
-	{
-		if(pGraphics->Init() != 0)
-		{
-			dbg_msg("client", "couldn't init graphics");
-			return -1;
-		}
-	}
-
 	// register all console commands
 	pClient->RegisterCommands();
 
@@ -3693,6 +3685,15 @@ int main(int argc, const char **argv) // ignore_convention
 
 	// For XOpenIM in SDL2: https://bugzilla.libsdl.org/show_bug.cgi?id=3102
 	setlocale(LC_ALL, "");
+
+	// init graphics
+	{
+		if(pGraphics->Init() != 0)
+		{
+			dbg_msg("client", "couldn't init graphics");
+			return -1;
+		}
+	}
 
 	// run the client
 	dbg_msg("client", "starting...");
@@ -3779,8 +3780,8 @@ void CClient::RequestDDNetRanks()
 	Fetcher()->Escape(aEscaped, sizeof(aEscaped), g_Config.m_PlayerName);
 	str_format(aUrl, sizeof(aUrl), "https://ddnet.tw/players/?json=%s", aEscaped);
 
-	m_pDDNetRanksTask = new CFetchTask(true, /*UseDDNetCA*/ false);
-	Fetcher()->QueueAdd(m_pDDNetRanksTask, aUrl, "ddnet-ranks.json", IStorage::TYPE_SAVE);
+	m_pDDNetRanksTask = new CFetchTask(true, /*UseDDNetCA*/ true);
+	Fetcher()->QueueAdd(m_pDDNetRanksTask, aUrl, "ddnet-ranks.json.tmp", IStorage::TYPE_SAVE);
 }
 
 int CClient::GetPredictionTime()
