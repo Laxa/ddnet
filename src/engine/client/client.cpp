@@ -2691,6 +2691,8 @@ void CClient::Run()
 	LoadDDNetInfo();
 	// but still request the new one from server
 	if(g_Config.m_ClShowWelcome)
+		g_Config.m_ClShowWelcome = 0;
+	else
 		RequestDDNetInfo();
 
 	bool LastD = false;
@@ -3623,7 +3625,15 @@ bool CClient::RaceRecordIsRecording()
 void CClient::RequestDDNetInfo()
 {
 	char aUrl[256];
-	str_copy(aUrl, "https://info.ddnet.tw/info", sizeof(aUrl));
+	#if defined(CONF_FAMILY_WINDOWS)
+	static bool s_IsWinXP = os_compare_version(5U, 1U) <= 0;
+	#else
+	static bool s_IsWinXP = false;
+	#endif
+	if(s_IsWinXP)
+		str_copy(aUrl, "http://info.ddnet.tw/info", sizeof(aUrl));
+	else
+		str_copy(aUrl, "https://info.ddnet.tw/info", sizeof(aUrl));
 
 	if(g_Config.m_BrIndicateFinished)
 	{
