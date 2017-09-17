@@ -478,7 +478,7 @@ void CClient::SendInput()
 	if(m_PredTick[g_Config.m_ClDummy] <= 0)
 		return;
 
-	if(m_LastDummy != g_Config.m_ClDummy)
+	if(m_LastDummy != (bool)g_Config.m_ClDummy)
 	{
 		m_LastDummy = g_Config.m_ClDummy;
 		GameClient()->OnDummySwap();
@@ -1731,7 +1731,7 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket)
 
 					if(CompleteSize)
 					{
-						int IntSize = CVariableInt::Decompress(m_aSnapshotIncomingData, CompleteSize, aTmpBuffer2);
+						int IntSize = CVariableInt::Decompress(m_aSnapshotIncomingData, CompleteSize, aTmpBuffer2, sizeof(aTmpBuffer2));
 
 						if(IntSize < 0) // failure during decompression, bail
 							return;
@@ -1991,7 +1991,7 @@ void CClient::ProcessServerPacketDummy(CNetChunk *pPacket)
 
 					if(CompleteSize)
 					{
-						int IntSize = CVariableInt::Decompress(m_aSnapshotIncomingData, CompleteSize, aTmpBuffer2);
+						int IntSize = CVariableInt::Decompress(m_aSnapshotIncomingData, CompleteSize, aTmpBuffer2, sizeof(aTmpBuffer2));
 
 						if(IntSize < 0) // failure during decompression, bail
 							return;
