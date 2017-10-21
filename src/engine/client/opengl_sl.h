@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GL/glew.h"
+#include "engine/external/glew/GL/glew.h"
 
 class CGLSL {
 public:

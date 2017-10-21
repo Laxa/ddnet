@@ -6,7 +6,8 @@
 	#define WINVER 0x0501
 #endif
 
-#include "GL/glew.h"
+#include "engine/external/glew/GL/glew.h"
+
 #include <base/detect.h>
 #include <base/math.h>
 #include <stdlib.h>
@@ -19,11 +20,11 @@
 	#include <GL/glu.h>
 	#define glOrtho glOrthof
 #else
-	#include "SDL_opengl.h"
 
 	#if defined(CONF_PLATFORM_MACOSX)
 	#include "OpenGL/glu.h"
 	#else
+	#include "SDL_opengl.h"
 	#include "GL/glu.h"
 	#endif
 #endif
@@ -1514,7 +1515,7 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 	}
 	
 	m_UseOpenGL3_3 = false;
-	if (!g_Config.m_GfxForceOldOpenGL && SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) == 0)
+	if (g_Config.m_GfxOpenGL3 && SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) == 0)
 	{
 		pErr = SDL_GetError();
 		if(pErr[0] != '\0')
@@ -1675,7 +1676,7 @@ int CGraphicsBackend_SDL_OpenGL::Init(const char *pName, int *Screen, int *pWidt
 		dbg_msg("gfx", "unable to create OpenGL context: %s", SDL_GetError());
 		return -1;
 	}
-	
+
 	//support graphic cards that are pretty old(and linux)
 	glewExperimental = GL_TRUE;
 	if (GLEW_OK != glewInit())

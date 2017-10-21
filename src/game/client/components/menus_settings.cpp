@@ -179,7 +179,7 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 			if(g_Config.m_ClAutoDemoMax)
 				str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("Max demos"), g_Config.m_ClAutoDemoMax);
 			else
-				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max demos"), Localize("no limit"));
+				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max demos"), "∞");
 			UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
 			Left.HSplitTop(20.0f, &Button, 0);
 			Button.HMargin(2.0f, &Button);
@@ -191,7 +191,7 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 			if(g_Config.m_ClAutoScreenshotMax)
 				str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("Max Screenshots"), g_Config.m_ClAutoScreenshotMax);
 			else
-				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max Screenshots"), Localize("no limit"));
+				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max Screenshots"), "∞");
 			UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
 			Right.HSplitTop(20.0f, &Button, 0);
 			Button.HMargin(2.0f, &Button);
@@ -205,7 +205,7 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 		if(g_Config.m_ClRefreshRate)
 			str_format(aBuf, sizeof(aBuf), "%s: %i Hz", Localize("Refresh Rate"), g_Config.m_ClRefreshRate);
 		else
-			str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Refresh Rate"), Localize("no limit"));
+			str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Refresh Rate"), "∞");
 		UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
 		Left.HSplitTop(20.0f, &Button, 0);
 		Button.HMargin(2.0f, &Button);
@@ -236,7 +236,7 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 			if(g_Config.m_ClAutoStatboardScreenshotMax)
 				str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("Max Screenshots"), g_Config.m_ClAutoStatboardScreenshotMax);
 			else
-				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max Screenshots"), Localize("no limit"));
+				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max Screenshots"), "∞");
 			UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
 			Right.HSplitTop(20.0f, &Button, 0);
 			Button.HMargin(2.0f, &Button);
@@ -264,7 +264,7 @@ void CMenus::RenderSettingsGeneral(CUIRect MainView)
 			if (g_Config.m_ClAutoCSVMax)
 				str_format(aBuf, sizeof(aBuf), "%s: %i", Localize("Max CSVs"), g_Config.m_ClAutoCSVMax);
 			else
-				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max CSVs"), Localize("no limit"));
+				str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Max CSVs"), "∞");
 			UI()->DoLabelScaled(&Label, aBuf, 13.0f, -1);
 			Right.HSplitTop(20.0f, &Button, 0);
 			Button.HMargin(2.0f, &Button);
@@ -909,7 +909,7 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 	static int s_GfxFsaaSamples = g_Config.m_GfxFsaaSamples;
 	static int s_GfxTextureQuality = g_Config.m_GfxTextureQuality;
 	static int s_GfxTextureCompression = g_Config.m_GfxTextureCompression;
-	static int s_GfxOpenGLVersion = g_Config.m_GfxForceOldOpenGL;
+	static int s_GfxOpenGLVersion = g_Config.m_GfxOpenGL3;
 	static int s_GfxEnableTextureUnitOptimization = g_Config.m_GfxEnableTextureUnitOptimization;
 	static int s_GfxUsePreinitBuffer = g_Config.m_GfxUsePreinitBuffer;
 
@@ -1034,13 +1034,13 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 		g_Config.m_GfxHighDetail ^= 1;
 
 	MainView.HSplitTop(20.0f, &Button, &MainView);
-	if(DoButton_CheckBox(&g_Config.m_GfxForceOldOpenGL, Localize("Use OpenGL 3.3 (experimental)"), g_Config.m_GfxForceOldOpenGL^1, &Button))
+	if(DoButton_CheckBox(&g_Config.m_GfxOpenGL3, Localize("Use OpenGL 3.3 (experimental)"), g_Config.m_GfxOpenGL3, &Button))
 	{
 		CheckSettings = true;
-		g_Config.m_GfxForceOldOpenGL ^= 1;
+		g_Config.m_GfxOpenGL3 ^= 1;
 	}
 
-	if(g_Config.m_GfxForceOldOpenGL == 0)
+	if(g_Config.m_GfxOpenGL3)
 	{
 		MainView.HSplitTop(20.0f, &Button, &MainView);
 		if(DoButton_CheckBox(&g_Config.m_GfxUsePreinitBuffer, Localize("Preinit VBO (iGPUs only)"), g_Config.m_GfxUsePreinitBuffer, &Button))
@@ -1067,7 +1067,7 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 			s_GfxFsaaSamples == g_Config.m_GfxFsaaSamples &&
 			s_GfxTextureQuality == g_Config.m_GfxTextureQuality &&
 			s_GfxTextureCompression == g_Config.m_GfxTextureCompression &&
-			s_GfxOpenGLVersion == g_Config.m_GfxForceOldOpenGL &&
+			s_GfxOpenGLVersion == g_Config.m_GfxOpenGL3 &&
 			s_GfxUsePreinitBuffer == g_Config.m_GfxUsePreinitBuffer &&
 			s_GfxEnableTextureUnitOptimization == g_Config.m_GfxEnableTextureUnitOptimization)
 			m_NeedRestartGraphics = false;
@@ -1080,7 +1080,7 @@ void CMenus::RenderSettingsGraphics(CUIRect MainView)
 	if(g_Config.m_GfxRefreshRate)
 		str_format(aBuf, sizeof(aBuf), "%s: %i Hz", Localize("Refresh Rate"), g_Config.m_GfxRefreshRate);
 	else
-		str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Refresh Rate"), Localize("no limit"));
+		str_format(aBuf, sizeof(aBuf), "%s: %s", Localize("Refresh Rate"), "∞");
 	UI()->DoLabelScaled(&Label, aBuf, 14.0f, -1);
 	Button.HMargin(2.0f, &Button);
 	g_Config.m_GfxRefreshRate = static_cast<int>(DoScrollbarH(&g_Config.m_GfxRefreshRate, &Button, g_Config.m_GfxRefreshRate/1000.0f)*1000.0f+0.1f);
