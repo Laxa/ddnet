@@ -72,11 +72,9 @@ set(CLIENT_EXECUTABLE DDNet CACHE STRING "Name of the build client executable")
 # DEPENDENCIES
 ########################################################################
 
-function(set_extra_dirs VARIABLE NAME)
+function(set_extra_dirs_lib VARIABLE NAME)
   set("PATHS_${VARIABLE}_LIBDIR" PARENT_SCOPE)
   set("HINTS_${VARIABLE}_LIBDIR" PARENT_SCOPE)
-  set("PATHS_${VARIABLE}_INCLUDEDIR" PARENT_SCOPE)
-  set("HINTS_${VARIABLE}_INCLUDEDIR" PARENT_SCOPE)
   if(PREFER_BUNDLED_LIBS)
     set(TYPE HINTS)
   else()
@@ -88,6 +86,28 @@ function(set_extra_dirs VARIABLE NAME)
     set("EXTRA_${VARIABLE}_LIBDIR" "${DIR}" PARENT_SCOPE)
   endif()
   set("${TYPE}_${VARIABLE}_INCLUDEDIR" "ddnet-libs/${NAME}/include" PARENT_SCOPE)
+endfunction()
+
+function(set_extra_dirs_include VARIABLE NAME LIBRARY)
+  set("PATHS_${VARIABLE}_INCLUDEDIR" PARENT_SCOPE)
+  set("HINTS_${VARIABLE}_INCLUDEDIR" PARENT_SCOPE)
+  is_bundled(IS_BUNDLED "${LIBRARY}")
+  if(IS_BUNDLED)
+      set("HINTS_${VARIABLE}_INCLUDEDIR" "ddnet-libs/${NAME}/include" PARENT_SCOPE)
+  endif()
+endfunction()
+
+function(is_bundled VARIABLE PATH)
+  if(PATH)
+    string(FIND "${PATH}" "${PROJECT_SOURCE_DIR}" LOCAL_PATH_POS)
+    if(LOCAL_PATH_POS EQUAL 0 AND TARGET_BITS AND TARGET_OS)
+      set("${VARIABLE}" ON PARENT_SCOPE)
+    else()
+      set("${VARIABLE}" OFF PARENT_SCOPE)
+    endif()
+  else()
+    set("${VARIABLE}" OFF PARENT_SCOPE)
+  endif()
 endfunction()
 
 # Check for PkgConfig once so all the other `find_package` calls can do it
@@ -121,8 +141,8 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Dependencies:")
 function(show_dependency_status NAME FOUND PATH)
   if(FOUND)
-    string(FIND "${PATH}" "${PROJECT_SOURCE_DIR}" LOCAL_PATH_POS)
-    if(LOCAL_PATH_POS EQUAL 0)
+    is_bundled(IS_BUNDLED "${PATH}")
+    if(IS_BUNDLED)
       message(STATUS " * ${NAME} not found (using bundled version)")
     else()
       message(STATUS " * ${NAME} found")
@@ -246,6 +266,7 @@ if(NOT(GTEST_FOUND) AND DOWNLOAD_GTEST)
   add_subdirectory(
     ${CMAKE_BINARY_DIR}/googletest-src
     ${CMAKE_BINARY_DIR}/googletest-build
+    EXCLUDE_FROM_ALL
   )
 
   if(MSVC)
@@ -967,8 +988,11 @@ add_custom_target(everything DEPENDS ${TARGETS_OWN})
 if(GTEST_FOUND OR DOWNLOAD_GTEST)
   set_glob(TESTS GLOB src/test
     aio.cpp
+    fs.cpp
     strip_path_and_extension.cpp
     teehistorian.cpp
+    test.cpp
+    test.h
     thread.cpp
   )
   set(TESTS_EXTRA
@@ -1125,6 +1149,7 @@ endforeach()
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ${PROJECT_NAME})
 install(TARGETS ${TARGET_CLIENT} ${TARGET_SERVER} DESTINATION bin)
 install(DIRECTORY data DESTINATION share/DDNet)
+install(DIRECTORY shader DESTINATION share/DDNet)
 
 set(CPACK_TARGETS
   ${TARGET_CLIENT}
@@ -1136,6 +1161,7 @@ set(CPACK_TARGETS
   map_extract
 )
 set(CPACK_DIRS data)
+set(CPACK_DIRS shader)
 set(CPACK_FILES
   license.txt
   storage.cfg
