@@ -766,9 +766,7 @@ void CGameContext::OnTick()
 						(m_VoteKick || m_VoteSpec))
 					Total = g_Config.m_SvVoteMaxTotal;
 
-				if((Yes > Total / (100.0 / g_Config.m_SvVoteYesPercentage)) && !Veto)
-					m_VoteEnforce = VOTE_ENFORCE_YES;
-				else if(No >= Total - Total / (100.0 / g_Config.m_SvVoteYesPercentage))
+				if(No >= Total - Total / (100.0 / g_Config.m_SvVoteYesPercentage))
 					m_VoteEnforce = VOTE_ENFORCE_NO;
 
 				if(VetoStop)
@@ -777,37 +775,22 @@ void CGameContext::OnTick()
 				m_VoteWillPass = Yes > (Yes + No) / (100.0 / g_Config.m_SvVoteYesPercentage);
 			}
 
-			if(time_get() > m_VoteCloseTime && !g_Config.m_SvVoteMajority)
+			if(Yes == Total)
+				m_VoteEnforce = VOTE_ENFORCE_YES;
+
+			if(time_get() > m_VoteCloseTime)
 				m_VoteEnforce = (m_VoteWillPass && !Veto) ? VOTE_ENFORCE_YES : VOTE_ENFORCE_NO;
 
 			if(m_VoteEnforce == VOTE_ENFORCE_YES)
 			{
-				if (PlayerModerating() && (m_VoteKick || m_VoteSpec))
-				{
-					// Ensure minimum time for vote to end when moderating.
-					if (time_get() > m_VoteCloseTime)
-					{
-						Server()->SetRconCID(IServer::RCON_CID_VOTE);
-						Console()->ExecuteLine(m_aVoteCommand);
-						Server()->SetRconCID(IServer::RCON_CID_SERV);
-						EndVote();
-						SendChat(-1, CGameContext::CHAT_ALL, "Vote passed");
+				Server()->SetRconCID(IServer::RCON_CID_VOTE);
+				Console()->ExecuteLine(m_aVoteCommand);
+				Server()->SetRconCID(IServer::RCON_CID_SERV);
+				EndVote();
+				SendChat(-1, CGameContext::CHAT_ALL, "Vote passed");
 
-						if (m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
-							m_apPlayers[m_VoteCreator]->m_LastVoteCall = 0;
-					}
-				}
-				else
-				{
-					Server()->SetRconCID(IServer::RCON_CID_VOTE);
-					Console()->ExecuteLine(m_aVoteCommand);
-					Server()->SetRconCID(IServer::RCON_CID_SERV);
-					EndVote();
-					SendChat(-1, CGameContext::CHAT_ALL, "Vote passed");
-
-					if (m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
-						m_apPlayers[m_VoteCreator]->m_LastVoteCall = 0;
-				}
+				if (m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
+					m_apPlayers[m_VoteCreator]->m_LastVoteCall = 0;
 			}
 			else if(m_VoteEnforce == VOTE_ENFORCE_YES_ADMIN)
 			{
