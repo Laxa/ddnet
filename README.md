@@ -21,14 +21,14 @@ To clone this repository with history since we moved the libraries to https://gi
 
     git clone --shallow-exclude=included-libs https://github.com/ddnet/ddnet
 
-To clone the libraries if you have previously cloned ddnet without them:
+To clone the libraries if you have previously cloned DDNet without them:
 
     git submodule update --init --recursive
 
 Building on Linux and macOS
 ---------------------------
 
-To compile DDNet yourself, you can follow the [instructions for compiling Teeworlds](https://www.teeworlds.com/?page=docs&wiki=compiling_everything). Alternatively we also support CMake, so something like this works:
+To compile DDNet yourself, execute the following commands in the source root:
 
     mkdir build
     cd build
@@ -97,7 +97,7 @@ Install [osxcross](https://github.com/tpoechtrager/osxcross), then add
 Install `dmg` and `hfsplus` from
 [libdmg-hfsplus](https://github.com/mozilla/libdmg-hfsplus) and `newfs_hfs`
 from
-[diskdev_cmds](http://pkgs.fedoraproject.org/repo/pkgs/hfsplus-tools/diskdev_cmds-540.1.linux3.tar.gz/0435afc389b919027b69616ad1b05709/diskdev_cmds-540.1.linux3.tar.gz)
+[diskdev\_cmds](http://pkgs.fedoraproject.org/repo/pkgs/hfsplus-tools/diskdev_cmds-540.1.linux3.tar.gz/0435afc389b919027b69616ad1b05709/diskdev_cmds-540.1.linux3.tar.gz)
 to unlock the `package_dmg` target that outputs a macOS disk image.
 
 Importing the official DDNet Database
@@ -120,6 +120,9 @@ sv_use_sql 1
 add_sqlserver r teeworlds record teeworlds "PW2" "localhost" "3306"
 add_sqlserver w teeworlds record teeworlds "PW2" "localhost" "3306"
 
-$ bam server_sql_release
-$ ./DDNet-Server_sql -f mine.cfg
+$ mkdir build
+$ cd build
+$ cmake -DMYSQL=ON ..
+$ make
+$ ./DDNet-Server -f mine.cfg
 ```
