@@ -176,11 +176,14 @@ public:
 	int m_ChatScore;
 
 	bool m_Moderating;
+	int m_ModHelpTick;
 
 	bool AfkTimer(int new_target_x, int new_target_y); //returns true if kicked
 	void AfkVoteTimer(CNetObj_PlayerInput *NewTarget);
 	int64 m_LastPlaytime;
 	int64 m_LastEyeEmote;
+	int64 m_LastBroadcast;
+	bool m_LastBroadcastImportance;
 	int m_LastTarget_x;
 	int m_LastTarget_y;
 	CNetObj_PlayerInput m_LastTarget;
