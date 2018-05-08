@@ -667,6 +667,9 @@ set_glob(GAME_SHARED GLOB src/game
   layers.h
   localization.cpp
   localization.h
+  mapbugs.cpp
+  mapbugs.h
+  mapbugs_list.h
   mapitems.cpp
   mapitems.h
   teamscore.cpp
@@ -854,14 +857,8 @@ if(CLIENT)
 
   if(TARGET_OS STREQUAL "windows")
     set(CLIENT_ICON "other/icons/DDNet.rc")
-    if(NOT MINGW)
-      set(CLIENT_MANIFEST "other/manifest/DDNet.manifest")
-    else()
-      set(CLIENT_MANIFEST "other/manifest/DDNet.rc")
-    endif()
   else()
     set(CLIENT_ICON)
-    set(CLIENT_MANIFEST)
   endif()
 
   # Target
@@ -869,7 +866,6 @@ if(CLIENT)
   add_executable(${TARGET_CLIENT}
     ${CLIENT_SRC}
     ${CLIENT_ICON}
-    ${CLIENT_MANIFEST}
     ${DEPS_CLIENT}
     $<TARGET_OBJECTS:engine-shared>
     $<TARGET_OBJECTS:game-shared>
@@ -1104,6 +1100,7 @@ if(GTEST_FOUND OR DOWNLOAD_GTEST)
     fs.cpp
     git_revision.cpp
     jobs.cpp
+    mapbugs.cpp
     name_ban.cpp
     str.cpp
     strip_path_and_extension.cpp
