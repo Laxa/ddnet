@@ -7,6 +7,7 @@
 #include <engine/shared/config.h>
 #include <engine/map.h>
 #include <engine/console.h>
+#include <engine/engine.h>
 #include <engine/shared/datafile.h>
 #include <engine/shared/linereader.h>
 #include <engine/storage.h>
@@ -823,10 +824,10 @@ void CGameContext::OnTick()
 
 			if(m_VoteEnforce == VOTE_ENFORCE_YES)
 			{
-				if (PlayerModerating() && (m_VoteKick || m_VoteSpec))
+				if(PlayerModerating() && (m_VoteKick || m_VoteSpec))
 				{
 					// Ensure minimum time for vote to end when moderating.
-					if (time_get() > m_VoteCloseTime)
+					if(time_get() > m_VoteCloseTime)
 					{
 						Server()->SetRconCID(IServer::RCON_CID_VOTE);
 						Console()->ExecuteLine(m_aVoteCommand);
@@ -834,7 +835,7 @@ void CGameContext::OnTick()
 						EndVote();
 						SendChat(-1, CGameContext::CHAT_ALL, "Vote passed");
 
-						if (m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
+						if(m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
 							m_apPlayers[m_VoteCreator]->m_LastVoteCall = 0;
 					}
 				}
@@ -846,7 +847,7 @@ void CGameContext::OnTick()
 					EndVote();
 					SendChat(-1, CGameContext::CHAT_ALL, "Vote passed");
 
-					if (m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
+					if(m_apPlayers[m_VoteCreator] && !m_VoteKick && !m_VoteSpec)
 						m_apPlayers[m_VoteCreator]->m_LastVoteCall = 0;
 				}
 			}
@@ -889,6 +890,22 @@ void CGameContext::OnTick()
 		{
 			m_NumMutes--;
 			m_aMutes[i] = m_aMutes[m_NumMutes];
+		}
+	}
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if(m_apPlayers[i] && m_apPlayers[i]->m_pPostJson)
+		{
+			switch(m_apPlayers[i]->m_pPostJson->State())
+			{
+			case HTTP_DONE:
+				m_apPlayers[i]->m_pPostJson = NULL;
+				break;
+			case HTTP_ERROR:
+				dbg_msg("modhelp", "http request failed for cid=%d", i);
+				m_apPlayers[i]->m_pPostJson = NULL;
+				break;
+			}
 		}
 	}
 
@@ -2551,6 +2568,7 @@ void CGameContext::OnConsoleInit()
 {
 	m_pServer = Kernel()->RequestInterface<IServer>();
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
+	m_pEngine = Kernel()->RequestInterface<IEngine>();
 	m_pStorage = Kernel()->RequestInterface<IStorage>();
 
 	m_ChatPrintCBIndex = Console()->RegisterPrintCallback(0, SendChatResponse, this);
@@ -2593,6 +2611,7 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 {
 	m_pServer = Kernel()->RequestInterface<IServer>();
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
+	m_pEngine = Kernel()->RequestInterface<IEngine>();
 	m_pStorage = Kernel()->RequestInterface<IStorage>();
 	m_World.SetGameServer(this);
 	m_Events.SetGameServer(this);
@@ -3517,8 +3536,10 @@ int CGameContext::GetClientVersion(int ClientID) {
 		: 0;
 }
 
-void CGameContext::SetClientVersion(int ClientID, int Version) {
-	if (!m_apPlayers[ClientID]) {
+void CGameContext::SetClientVersion(int ClientID, int Version)
+{
+	if(!m_apPlayers[ClientID])
+	{
 		return;
 	}
 	m_apPlayers[ClientID]->m_ClientVersion = Version;
@@ -3526,9 +3547,9 @@ void CGameContext::SetClientVersion(int ClientID, int Version) {
 
 bool CGameContext::PlayerModerating()
 {
-	for (int i = 0; i < MAX_CLIENTS; i++)
+	for(int i = 0; i < MAX_CLIENTS; i++)
 	{
-		if (m_apPlayers[i] && m_apPlayers[i]->m_Moderating)
+		if(m_apPlayers[i] && m_apPlayers[i]->m_Moderating)
 			return true;
 	}
 	return false;
