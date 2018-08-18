@@ -343,7 +343,7 @@ void CNetServer::OnPreConnMsg(NETADDR &Addr, CNetPacketConstruct &Packet)
 
 	if (IsCtrl && CtrlMsg == NET_CTRLMSG_CONNECT)
 	{
-		if (g_Config.m_SvVanillaAntiSpoof && g_Config.m_Password[0] == '\0')
+		if (g_Config.m_SvVanillaAntiSpoof)
 		{
 			// detect flooding
 			int64 Now = time_get();
